@@ -1,0 +1,9 @@
+.env
+.env.*
+__pycache__/
+*.pyc
+*.pyo
+easyedits_output/
+*.log
+.DS_Store
+Thumbs.db

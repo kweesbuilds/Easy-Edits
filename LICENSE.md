@@ -1,26 +1,25 @@
-MIT License
+# EasyEdits Custom License
 
 Copyright (c) 2025 kweesbuilds (github.com/kweesbuilds)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+## You are free to:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+- **Use** this software personally and commercially in your own projects
+- **Modify** this software for your own use
+- **Share** this software with others at no charge, provided this licence is included
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+## You are NOT permitted to:
 
----
+- **Sell, license, or commercially distribute** this software or any modified version
+  of it without explicit written permission from the author (kweesbuilds)
+- **Repackage** this software as your own product for sale or distribution
+- **Sublicense** this software to third parties for commercial gain
+- **Remove or alter** this licence or the copyright notice
+
+## To request commercial distribution rights:
+
+Contact kweesbuilds via github.com/kweesbuilds to request a commercial licence.
+Permission may be granted at the author's sole discretion.
 
 ## Third-Party Components
 
@@ -34,3 +33,9 @@ They are not bundled with this software — users install them independently.
 | OpenAI Whisper model weights | MIT | github.com/openai/whisper |
 
 Users are responsible for complying with the licences of these tools.
+
+## Disclaimer
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.

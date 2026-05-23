@@ -168,7 +168,7 @@ Make sure your original clip files are still in the same folder — the XML refe
 
 ## License
 
-MIT — see `LICENSE.md`
+Custom License — free to use and modify, redistribution for sale requires permission. See LICENSE.md for full terms.
 
 ---
 

@@ -119,9 +119,31 @@ body {
   color: var(--text-1);
 }
 
+.transcript-words {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 2.1;
+  color: var(--text-1);
+  padding: var(--space-xs) 0 var(--space-sm);
+  word-wrap: break-word;
+}
+
+.word-kept      { color: var(--text-1); }
 .cut-silence    { color: var(--cut-silence); font-style: normal; }
 .cut-filler     { text-decoration: line-through; text-decoration-color: var(--text-3); color: var(--cut-filler); }
 .cut-false-start { color: var(--cut-silence); }
+
+.silence-marker {
+  display: inline-block;
+  color: var(--cut-silence);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  opacity: 0.65;
+  vertical-align: middle;
+  margin: 0 1px;
+}
 .broll-marker {
   color: var(--broll-accent);
   font-size: 11px;
@@ -575,6 +597,56 @@ function renderTimelineUI() {
 }
 
 // ── Transcript ─────────────────────────────────────────────────────────────────
+function buildClipHTML(clip, cuts) {
+  const clipCuts = (cuts || []).filter(c => c.clip === clip.filename);
+  const words = clip.words || [];
+  if (!words.length) return `<span class="word-kept">${clip.transcript_marked || ''}</span>`;
+
+  const parts = [];
+
+  // Leading silence before first word
+  const leadCut = clipCuts.find(c => c.type === 'silence' && c.end <= words[0].start + 0.2);
+  if (leadCut) {
+    const dur = (leadCut.end - leadCut.start).toFixed(1);
+    parts.push(`<span class="silence-marker" title="silence removed">[${dur}s]</span>`);
+  }
+
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    const wCut = clipCuts.find(c => c.start <= w.start + 0.05 && w.end <= c.end + 0.05);
+    if (wCut) {
+      const cls = wCut.type === 'filler' ? 'cut-filler'
+                : wCut.type === 'false-start' ? 'cut-false-start'
+                : 'cut-silence';
+      parts.push(`<span class="${cls}" title="${wCut.type} cut">${w.word}</span>`);
+    } else {
+      parts.push(`<span class="word-kept">${w.word}</span>`);
+    }
+
+    // Silence gap before next word
+    if (i < words.length - 1) {
+      const next = words[i + 1];
+      const gapCut = clipCuts.find(c =>
+        c.type === 'silence' && c.start <= w.end + 0.2 && c.end >= next.start - 0.2
+      );
+      if (gapCut) {
+        const dur = (gapCut.end - gapCut.start).toFixed(1);
+        parts.push(`<span class="silence-marker" title="silence removed">[${dur}s]</span>`);
+      }
+    }
+  }
+
+  // Trailing silence after last word
+  const last = words[words.length - 1];
+  const trailCut = clipCuts.find(c => c.type === 'silence' && c.start >= last.end - 0.2);
+  if (trailCut) {
+    const dur = (trailCut.end - trailCut.start).toFixed(1);
+    parts.push(`<span class="silence-marker" title="silence removed">[${dur}s]</span>`);
+  }
+
+  return parts.join(' ');
+}
+
 function renderTranscript() {
   if (!state) return;
   const totalOrig = state.clips.reduce((s,c)=>s+c.duration_sec,0);
@@ -598,14 +670,9 @@ function renderTranscript() {
     const hdr=document.createElement('div'); hdr.className='clip-header';
     hdr.textContent=clip.filename; content.appendChild(hdr);
 
-    if (clip.transcript_marked) {
-      const pre=document.createElement('pre'); pre.className='transcript-text';
-      pre.innerHTML=clip.transcript_marked
-        .replace(/\[(\.\.\.[^\]]+)\]/g, m=>`<span class="cut-silence">${m}</span>`)
-        .replace(/\[false start\]/g, m=>`<span class="cut-false-start">${m}</span>`)
-        .replace(/\[([^\]]+)\]/g, m=>`<span class="cut-filler">${m}</span>`);
-      content.appendChild(pre);
-    }
+    const div=document.createElement('div'); div.className='transcript-words';
+    div.innerHTML = buildClipHTML(clip, state.cuts);
+    content.appendChild(div);
 
     const clipGlobalStart = clipOffsets[clip.filename]||0;
     const clipCutDur=(state.cuts||[]).filter(c=>c.clip===clip.filename).reduce((s,c)=>s+(c.end-c.start),0);

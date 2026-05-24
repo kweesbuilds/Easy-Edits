@@ -21,6 +21,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -240,6 +241,26 @@ def detect_fillers(words: list[dict], filler_list: list[str]) -> list[dict]:
     return cuts
 
 
+def generate_caption_entries(words: list[dict], cuts: list[dict], words_per_line: int = 7, clip_name: str = "") -> list[dict]:
+    """Group kept words into caption entries of words_per_line each."""
+    cut_ranges = [(c["start"], c["end"]) for c in cuts]
+    kept = [
+        w for w in words
+        if not any(cs <= w["start"] and w["end"] <= ce + 0.05 for cs, ce in cut_ranges)
+    ]
+    entries = []
+    for i in range(0, len(kept), words_per_line):
+        chunk = kept[i:i + words_per_line]
+        if chunk:
+            entries.append({
+                "clip": clip_name,
+                "start": chunk[0]["start"],
+                "end": chunk[-1]["end"],
+                "text": " ".join(w["word"] for w in chunk).strip()
+            })
+    return entries
+
+
 def build_marked_transcript(
     words: list[dict],
     silences: list[dict],
@@ -377,7 +398,8 @@ def mode_scan(folder: Path):
     print(json.dumps(clips, indent=2))
 
 
-def mode_transcribe(folder: Path, order: list[str], overrides: dict = None):
+def mode_transcribe(folder: Path, order: list[str], overrides: dict = None,
+                    video_type: str = "", broll_folder: str = ""):
     """Transcribe clips in given order, return marked transcript JSON."""
     if not check_dependency(["ffmpeg", "-version"], "FFmpeg"):
         sys.exit(1)
@@ -449,6 +471,48 @@ def mode_transcribe(folder: Path, order: list[str], overrides: dict = None):
     with open(cache_path, "w") as f:
         json.dump(result, f, indent=2)
 
+    # Write preview_state.json for the browser preview
+    state_clips = []
+    all_caption_entries = []
+
+    for r in results:
+        clip_cuts = r.get("cuts", [])
+        words = r.get("words", [])
+        clip_entries = generate_caption_entries(
+            words, cuts=clip_cuts, words_per_line=7, clip_name=r["clip"]
+        )
+        all_caption_entries.extend(clip_entries)
+        state_clips.append({
+            "filename": r["clip"],
+            "path": str(folder / r["clip"]),
+            "duration_sec": r.get("duration_sec", 0),
+            "words": words,
+            "transcript_marked": r.get("transcript", "")
+        })
+
+    all_state_cuts = [
+        {**cut, "clip": r["clip"]}
+        for r in results
+        for cut in r.get("cuts", [])
+    ]
+
+    preview_state = {
+        "last_modified": time.time(),
+        "video_type": video_type,
+        "broll_folder": broll_folder,
+        "clips": state_clips,
+        "cuts": all_state_cuts,
+        "broll": [],
+        "captions": {
+            "words_per_line": 7,
+            "entries": all_caption_entries
+        }
+    }
+
+    state_path = output_dir / "preview_state.json"
+    with open(state_path, "w") as f:
+        json.dump(preview_state, f, indent=2)
+
     print(json.dumps(result, indent=2))
 
 
@@ -497,13 +561,15 @@ def mode_execute(folder: Path, order: list[str], cuts_file: str):
 
 def main():
     parser = argparse.ArgumentParser(description="EasyEdits — autoedit.py")
-    parser.add_argument("--scan",       action="store_true")
-    parser.add_argument("--transcribe", action="store_true")
-    parser.add_argument("--execute",    action="store_true")
-    parser.add_argument("--folder",     required=True)
-    parser.add_argument("--order",      default="")
-    parser.add_argument("--cuts",       default="")
-    parser.add_argument("--overrides",  default="{}")
+    parser.add_argument("--scan",         action="store_true")
+    parser.add_argument("--transcribe",   action="store_true")
+    parser.add_argument("--execute",      action="store_true")
+    parser.add_argument("--folder",       required=True)
+    parser.add_argument("--order",        default="")
+    parser.add_argument("--cuts",         default="")
+    parser.add_argument("--overrides",    default="{}")
+    parser.add_argument("--video-type",   default="")
+    parser.add_argument("--broll-folder", default="")
     args = parser.parse_args()
 
     folder = Path(args.folder)
@@ -517,7 +583,9 @@ def main():
     if args.scan:
         mode_scan(folder)
     elif args.transcribe:
-        mode_transcribe(folder, order, overrides)
+        mode_transcribe(folder, order, overrides,
+                        video_type=args.video_type,
+                        broll_folder=args.broll_folder)
     elif args.execute:
         mode_execute(folder, order, args.cuts)
     else:

@@ -6,6 +6,24 @@ Format: [Semantic Versioning](https://semver.org) — `MAJOR.MINOR.PATCH`
 
 ---
 
+## [1.2.0] — 2026-05-24
+
+### Browser preview UI
+
+- New `preview_server.py` — Flask server serving preview.html at localhost:5000
+- New `preview.html` — two-panel browser UI: marked transcript left, video player right
+- NLE-style timeline with V1 (main clips), V2 (b-roll), A1 (audio) tracks + clickable playhead
+- Browser polls `/state` every 2 seconds — updates automatically after every Claude adjustment
+- B-roll overlay: specify clip, position (global timeline seconds), duration, muted flag
+- B-roll audio muted by default; unmutable per clip via plain English instruction
+- `--words-per-caption N` flag on `xml_builder.py` (default 7); updates preview captions live
+- B-roll V2 track added to FCP7 XML output; audio track included when `muted: false`
+- `autoedit.py` gains `--video-type` and `--broll-folder` args; writes `preview_state.json`
+- Step 0 in skill flow asks video type upfront; skips b-roll question for talking head videos
+- New dependency: `pip install flask`
+
+---
+
 ## [1.0.0] — 2025
 
 ### Initial release

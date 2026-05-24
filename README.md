@@ -14,7 +14,8 @@ Built as a Claude Code skill. Runs 100% locally. No API costs, no cloud uploads,
 - Lets you reorder clips in plain English before anything is processed
 - Transcribes every clip locally using Whisper (faster-whisper)
 - Shows you the full transcript with every proposed cut marked — silences, filler words, false starts
-- Lets you adjust cuts in plain English ("keep the first um in clip 3", "don't cut silences in clip 2")
+- **Live browser preview** at localhost:5000: transcript left, stitched video player right, NLE-style timeline below
+- Lets you adjust cuts, b-roll overlays, and caption word count in plain English
 - Outputs a single `edit.xml` covering all clips sequenced on one timeline — compatible with DaVinci Resolve, Premiere Pro, and Final Cut Pro
 - Outputs a `captions.srt` synced to the edited timeline
 - Never touches your original files
@@ -29,6 +30,7 @@ Built as a Claude Code skill. Runs 100% locally. No API costs, no cloud uploads,
 | Python | 3.10+ | [python.org](https://python.org) |
 | FFmpeg | Any recent | `winget install ffmpeg` |
 | faster-whisper | Latest | `pip install faster-whisper` |
+| Flask | Latest | `pip install flask` — required for browser preview |
 | Claude Code | Latest | [code.claude.com](https://code.claude.com) |
 | NLE | DaVinci Resolve (free works), Premiere Pro, or Final Cut Pro | — |
 
@@ -40,7 +42,7 @@ Built as a Claude Code skill. Runs 100% locally. No API costs, no cloud uploads,
 
 ```
 winget install ffmpeg
-pip install faster-whisper
+pip install faster-whisper flask
 ```
 
 **2. Copy skill to Claude Code**
@@ -137,6 +139,36 @@ that false start in clip 1 — keep it
 lower the silence threshold, too many cuts
 remove you know everywhere except clip 3
 swap clip 1 and clip 2
+```
+
+---
+
+## Browser preview
+
+After transcription, EasyEdits opens a local preview at `localhost:5000`:
+
+- **Left panel** — transcript with cuts highlighted (silences greyed, fillers struck through)
+- **Right panel** — video player that skips cuts in real time, with b-roll overlay and captions
+- **Timeline** — V2/V1/A1 tracks, playhead, click to seek
+
+All adjustments are still made by typing to Claude. The browser updates automatically every 2 seconds.
+
+### B-roll overlays
+
+Tell Claude where to place b-roll clips:
+```
+put broll_cafe.mp4 at 0:32 for 5 seconds
+keep the audio on broll_cafe.mp4 at 0:32
+remove the broll at 0:32
+```
+
+B-roll audio is muted by default (your voiceover plays underneath).
+
+### Caption customisation
+
+```
+make captions 2 words per line
+go back to 7 words per caption
 ```
 
 ---

@@ -45,6 +45,7 @@ EOF
 - Python: 3.10+
 - FFmpeg: installed via winget, on system PATH
 - faster-whisper: installed via pip
+- Flask: installed via pip (pip install flask)
 - Whisper model: `medium` (CPU, int8)
 - DaVinci Resolve: Free version — XML import approach only (no Python API)
 
@@ -68,13 +69,32 @@ Automates the first-pass edit of talking head / vlog video content:
 
 ## Script locations
 
-- `scripts/autoedit.py` — scanning, transcription, cut detection
-- `scripts/xml_builder.py` — XML and SRT generation
+- `scripts/autoedit.py` — scanning, transcription, cut detection; writes preview_state.json
+- `scripts/xml_builder.py` — XML and SRT generation; reads broll from preview_state.json
+- `scripts/preview_server.py` — Flask server: serves preview.html + video streams
+- `scripts/preview.html` — browser frontend: transcript, video player, timeline UI
+
+## Preview server flow
+
+1. After transcription, `autoedit.py` writes `easyedits_output/preview_state.json`
+2. Launch `preview_server.py` in background → user opens localhost:5000
+3. Browser polls `/state` every 2s, updates automatically on each change
+4. Claude edits `preview_state.json` in-place for every adjustment (bumps `last_modified`)
+5. On "go": run `xml_builder.py` → kill server via PID file
 
 ## Output format
 
 - `edit.xml` — FCP7 XML, compatible with DaVinci Resolve free via File → Import Timeline → Import AAF, EDL, XML
 - `captions.srt` — standard SRT, import via File → Import Subtitles in DaVinci
+
+## Key flags
+
+autoedit.py:
+  --video-type    Type of video (e.g. "food review") — stored in preview_state.json
+  --broll-folder  Path to folder containing b-roll clips
+
+xml_builder.py:
+  --words-per-caption  Words per SRT caption line (default 7)
 
 ## Default settings (change in autoedit.py if needed)
 
@@ -93,5 +113,7 @@ basically, literally, right, okay so, so yeah, i mean, honestly, actually, obvio
 
 - "ffmpeg is not recognized" → user needs to run `winget install ffmpeg` and reopen terminal
 - "No module named faster_whisper" → user needs to run `pip install faster-whisper`
+- "No module named flask" → user needs to run `pip install flask`
 - "No video files found" → check the folder path, must use full Windows path
 - "clip not found" in DaVinci → source files have been moved or renamed since running the skill
+- "Port already in use" → server auto-tries next port (5001, 5002), tells user which opened

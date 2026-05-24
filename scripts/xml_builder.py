@@ -75,7 +75,7 @@ def prettify_xml(elem: Element) -> str:
 
 # ── XML builder ──────────────────────────────────────────────────────────────
 
-def build_fcpxml(plan: dict, output_dir: Path) -> Path:
+def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
     """
     Build a Final Cut Pro 7 XML file compatible with DaVinci Resolve.
 
@@ -160,6 +160,10 @@ def build_fcpxml(plan: dict, output_dir: Path) -> Path:
     SubElement(video_el, "format")
     video_track = SubElement(video_el, "track")
 
+    # V2 video track — b-roll overlays (only added when broll entries exist)
+    broll = broll or []
+    video_track_v2 = SubElement(video_el, "track") if broll else None
+
     # Audio track
     audio_el = SubElement(media, "audio")
     audio_track_1 = SubElement(audio_el, "track")
@@ -213,6 +217,50 @@ def build_fcpxml(plan: dict, output_dir: Path) -> Path:
 
         clip_id += 1
 
+    # ── B-roll V2 clips ──────────────────────────────────────────────────────
+    if broll and video_track_v2 is not None:
+        for br_idx, br in enumerate(broll, start=1):
+            br_path = Path(br["path"])
+            br_in_frames  = 0
+            br_out_frames = sec_to_frames(br["duration"], fps_num, fps_den)
+            br_tl_in      = sec_to_frames(br["at_sec"],             fps_num, fps_den)
+            br_tl_out     = sec_to_frames(br["at_sec"] + br["duration"], fps_num, fps_den)
+            br_dur_frames = br_out_frames - br_in_frames
+
+            bv = SubElement(video_track_v2, "clipitem", id=f"broll-v{br_idx}")
+            SubElement(bv, "name").text     = br["filename"]
+            SubElement(bv, "duration").text = str(br_dur_frames)
+            bv_rate = SubElement(bv, "rate")
+            SubElement(bv_rate, "timebase").text = str(int(fps_float))
+            SubElement(bv_rate, "ntsc").text     = "FALSE"
+            SubElement(bv, "in").text    = str(br_in_frames)
+            SubElement(bv, "out").text   = str(br_out_frames)
+            SubElement(bv, "start").text = str(br_tl_in)
+            SubElement(bv, "end").text   = str(br_tl_out)
+
+            br_file = SubElement(bv, "file", id=f"broll-file-{br_idx}")
+            SubElement(br_file, "name").text    = br["filename"]
+            SubElement(br_file, "pathurl").text = br_path.as_uri()
+            brf_rate = SubElement(br_file, "rate")
+            SubElement(brf_rate, "timebase").text = str(int(fps_float))
+            SubElement(brf_rate, "ntsc").text     = "FALSE"
+            SubElement(br_file, "duration").text  = str(br_out_frames)
+
+            # Include audio channel only when not muted
+            if not br.get("muted", True):
+                br_audio_track = SubElement(audio_el, "track")
+                ba = SubElement(br_audio_track, "clipitem", id=f"broll-a{br_idx}")
+                SubElement(ba, "name").text      = br["filename"]
+                SubElement(ba, "duration").text  = str(br_dur_frames)
+                ba_rate = SubElement(ba, "rate")
+                SubElement(ba_rate, "timebase").text = str(int(fps_float))
+                SubElement(ba_rate, "ntsc").text     = "FALSE"
+                SubElement(ba, "in").text    = str(br_in_frames)
+                SubElement(ba, "out").text   = str(br_out_frames)
+                SubElement(ba, "start").text = str(br_tl_in)
+                SubElement(ba, "end").text   = str(br_tl_out)
+                SubElement(ba, "file").set("id", f"broll-file-{br_idx}")
+
     # Write XML
     xml_path = output_dir / "edit.xml"
     with open(xml_path, "w", encoding="utf-8") as f:
@@ -230,14 +278,14 @@ def build_fcpxml(plan: dict, output_dir: Path) -> Path:
 
 # ── SRT builder ──────────────────────────────────────────────────────────────
 
-def build_srt(keep_segments: list[dict], output_dir: Path) -> Path:
+def build_srt(keep_segments: list[dict], output_dir: Path, words_per_line: int = 7) -> Path:
     """
     Build an SRT caption file from the word timestamps in keep segments.
     Groups words into subtitle lines of ~6-8 words, synced to timeline time.
     """
     entries = []
     entry_idx = 1
-    WORDS_PER_LINE = 7
+    WORDS_PER_LINE = words_per_line
 
     for seg in keep_segments:
         words      = seg.get("words", [])
@@ -287,11 +335,47 @@ def build_srt(keep_segments: list[dict], output_dir: Path) -> Path:
     return srt_path
 
 
+def update_preview_captions(plan: dict, state_path: Path, words_per_line: int) -> None:
+    """Regenerate captions.entries in preview_state.json with new words_per_line."""
+    import time as _time
+
+    with open(state_path) as f:
+        state = json.load(f)
+
+    entries = []
+    for clip_data in plan["clips"]:
+        clip_name = clip_data["clip"]
+        words = clip_data.get("words", [])
+        cuts  = clip_data.get("cuts", [])
+        cut_ranges = [(c["start"], c["end"]) for c in cuts]
+        kept = [
+            w for w in words
+            if not any(cs <= w["start"] and w["end"] <= ce + 0.05 for cs, ce in cut_ranges)
+        ]
+        for i in range(0, len(kept), words_per_line):
+            chunk = kept[i:i + words_per_line]
+            if chunk:
+                entries.append({
+                    "clip":  clip_name,
+                    "start": chunk[0]["start"],
+                    "end":   chunk[-1]["end"],
+                    "text":  " ".join(w["word"] for w in chunk).strip()
+                })
+
+    state["captions"]["words_per_line"] = words_per_line
+    state["captions"]["entries"]        = entries
+    state["last_modified"]              = _time.time()
+
+    with open(state_path, "w") as f:
+        json.dump(state, f, indent=2)
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="EasyEdits — xml_builder.py")
-    parser.add_argument("--plan", required=True, help="Path to cut_plan.json")
+    parser.add_argument("--plan",              required=True, help="Path to cut_plan.json")
+    parser.add_argument("--words-per-caption", type=int, default=7)
     args = parser.parse_args()
 
     plan_path = Path(args.plan)
@@ -303,20 +387,28 @@ def main():
         plan = json.load(f)
 
     output_dir = plan_path.parent
+    state_path = output_dir / "preview_state.json"
+
+    # Read broll from preview_state.json if available
+    broll = []
+    if state_path.exists():
+        with open(state_path) as f:
+            ps = json.load(f)
+        broll = ps.get("broll", [])
 
     print("Building XML timeline...")
-    xml_path, keep_segments = build_fcpxml(plan, output_dir)
+    xml_path, keep_segments = build_fcpxml(plan, output_dir, broll=broll)
     print(f"  [ok] edit.xml -> {xml_path}")
 
     print("Building SRT captions...")
-    srt_path = build_srt(keep_segments, output_dir)
+    srt_path = build_srt(keep_segments, output_dir, words_per_line=args.words_per_caption)
     print(f"  [ok] captions.srt -> {srt_path}")
 
-    print(json.dumps({
-        "status": "ok",
-        "xml":    str(xml_path),
-        "srt":    str(srt_path)
-    }))
+    if state_path.exists():
+        update_preview_captions(plan, state_path, args.words_per_caption)
+        print(f"  [ok] preview_state.json captions updated")
+
+    print(json.dumps({"status": "ok", "xml": str(xml_path), "srt": str(srt_path)}))
 
 
 if __name__ == "__main__":

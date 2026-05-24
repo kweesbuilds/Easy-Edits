@@ -13,6 +13,11 @@ $s = Get-Content "$env:USERPROFILE\.claude\settings.json" | ConvertFrom-Json
 $newPerms = @(
   "PowerShell(python `"$env:USERPROFILE/.claude/skills/easyedits/scripts/autoedit.py`" *)",
   "PowerShell(python `"$env:USERPROFILE/.claude/skills/easyedits/scripts/xml_builder.py`" *)",
+  "PowerShell(Start-Process python -ArgumentList *)",
+  "PowerShell(Start-Process `"http://localhost*`")",
+  "PowerShell(Get-Content *preview_server.pid*)",
+  "PowerShell(Stop-Process -Id * -Force)",
+  "PowerShell(Start-Sleep *)",
   "PowerShell(Get-ChildItem *)",
   "PowerShell(Test-Path *)"
 )
@@ -32,6 +37,7 @@ s.setdefault("permissions", {}).setdefault("allow", [])
 new = [
   'Bash(python "$USERPROFILE/.claude/skills/easyedits/scripts/autoedit.py" *)',
   'Bash(python "$USERPROFILE/.claude/skills/easyedits/scripts/xml_builder.py" *)',
+  'Bash(python "$USERPROFILE/.claude/skills/easyedits/scripts/preview_server.py" *)',
 ]
 s["permissions"]["allow"] = list(dict.fromkeys(s["permissions"]["allow"] + new))
 json.dump(s, open(path, "w"), indent=2)
@@ -77,7 +83,7 @@ Automates the first-pass edit of talking head / vlog video content:
 ## Preview server flow
 
 1. After transcription, `autoedit.py` writes `easyedits_output/preview_state.json`
-2. Launch `preview_server.py` in background → user opens localhost:5000
+2. Launch `preview_server.py` in background → browser auto-opens at localhost:5000
 3. Browser polls `/state` every 2s, updates automatically on each change
 4. Claude edits `preview_state.json` in-place for every adjustment (bumps `last_modified`)
 5. On "go": run `xml_builder.py` → kill server via PID file

@@ -110,6 +110,13 @@ xml_builder.py:
 - Whisper model: medium
 - Words per caption line: 7
 
+## Caption overlay defaults (preview.html — do not change these)
+
+These are tuned for talking head / vertical video and should not be adjusted:
+- Font size: 13px
+- Position: bottom 25% of the video frame
+- Horizontal margins: 20% left and right (narrow centered band)
+
 ## Filler words detected by default
 
 um, uh, erm, er, like, you know, you know what i mean, sort of, kind of,

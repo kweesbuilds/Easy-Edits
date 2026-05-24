@@ -6,6 +6,17 @@ Format: [Semantic Versioning](https://semver.org) — `MAJOR.MINOR.PATCH`
 
 ---
 
+## [1.2.2] — 2026-05-24
+
+### Caption positioning defaults
+
+- Caption font size reduced to 13px (was 20px) — better fit for vertical/9:16 framing
+- Caption position raised to 25% from bottom (was 8%) — sits in the natural subtitle zone for talking head content
+- Horizontal margins widened to 20% each side — keeps text in a narrow centred band
+- Defaults locked in preview.html and documented in CLAUDE.md; will not be overridden by future sessions
+
+---
+
 ## [1.2.1] — 2026-05-24
 
 ### Preview UI redesign

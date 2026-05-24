@@ -45,12 +45,12 @@ winget install ffmpeg
 pip install faster-whisper flask
 ```
 
-**2. Copy skill to Claude Code**
+**2. Install the skill**
 
 Open PowerShell and run:
 
 ```powershell
-Copy-Item -Recurse easyedits "$env:USERPROFILE\.claude\skills\easyedits"
+git clone https://github.com/kweesbuilds/Easy-Edits.git "$env:USERPROFILE\.claude\skills\easyedits"
 ```
 
 **3. Verify**

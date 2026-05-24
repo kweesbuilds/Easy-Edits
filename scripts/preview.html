@@ -3,50 +3,319 @@
 <head>
 <meta charset="UTF-8">
 <title>EasyEdits Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
+/* Hallmark · pre-emit critique: P4 H4 E5 S5 R5 V4
+ * tool-UI redesign · genre: atmospheric · theme: Dark Studio
+ * font-display: Inter 400/500/600 · font-mono: JetBrains Mono 400
+ */
+
+:root {
+  --bg:           oklch(6% 0.005 280);
+  --surface:      oklch(9% 0.005 280);
+  --elevated:     oklch(13% 0.006 280);
+  --border:       oklch(19% 0.008 280);
+  --border-sub:   oklch(14% 0.008 280);
+
+  --accent:       oklch(56% 0.19 276);
+  --accent-hover: oklch(52% 0.19 276);
+  --accent-press: oklch(48% 0.19 276);
+  --accent-dim:   oklch(56% 0.19 276 / 12%);
+
+  --text-1:       oklch(94% 0.005 280);
+  --text-2:       oklch(60% 0.013 280);
+  --text-3:       oklch(34% 0.015 280);
+
+  --cut-silence:  oklch(26% 0.015 280);
+  --cut-filler:   oklch(34% 0.016 280);
+  --broll-accent: oklch(67% 0.14 42);
+
+  --font-ui:   'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --space-2xs: 0.25rem;
+  --space-xs:  0.5rem;
+  --space-sm:  0.75rem;
+  --space-md:  1rem;
+  --space-lg:  1.5rem;
+  --space-xl:  2rem;
+
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-short: 180ms;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #1a1a1a; color: #e0e0e0; font-family: monospace; height: 100vh; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1;
+  height: 100vh;
+  overflow: hidden;
+}
+
 #app { display: flex; height: 100vh; }
 
 /* ── Left panel ── */
-#transcript-panel { width: 380px; min-width: 260px; border-right: 1px solid #2d2d2d; display: flex; flex-direction: column; }
-#stats-bar { padding: 10px 14px; background: #222; border-bottom: 1px solid #2d2d2d; font-size: 12px; color: #888; }
-#transcript-content { flex: 1; overflow-y: auto; padding: 14px; font-size: 13px; line-height: 1.8; }
-.clip-header { color: #555; font-size: 11px; margin: 14px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; }
-.transcript-text { white-space: pre-wrap; }
-.cut-silence { color: #484848; font-style: italic; }
-.cut-filler { text-decoration: line-through; color: #555; }
-.cut-false-start { color: #484848; font-style: italic; }
-.broll-marker { color: #4a9eff; font-size: 11px; display: block; margin: 6px 0; }
+#transcript-panel {
+  width: 360px;
+  min-width: 240px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+#stats-bar {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--elevated);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-2);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+#transcript-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+#transcript-content::-webkit-scrollbar { width: 4px; }
+#transcript-content::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.clip-header {
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  margin: var(--space-lg) 0 var(--space-xs);
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--border-sub);
+}
+
+.clip-header:first-child { margin-top: var(--space-xs); }
+
+.transcript-text {
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.85;
+  color: var(--text-1);
+}
+
+.cut-silence    { color: var(--cut-silence); font-style: normal; }
+.cut-filler     { text-decoration: line-through; text-decoration-color: var(--text-3); color: var(--cut-filler); }
+.cut-false-start { color: var(--cut-silence); }
+.broll-marker {
+  color: var(--broll-accent);
+  font-size: 11px;
+  font-family: var(--font-ui);
+  display: block;
+  margin: var(--space-sm) 0;
+  letter-spacing: 0.01em;
+}
 
 /* ── Right panel ── */
-#right-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
+}
 
 /* ── Video player ── */
-#player-section { padding: 14px 16px 10px; flex-shrink: 0; }
-#video-container { position: relative; background: #000; width: 100%; aspect-ratio: 16/9; max-height: 52vh; }
+#player-section {
+  padding: var(--space-md) var(--space-md) var(--space-sm);
+  flex-shrink: 0;
+}
+
+#video-container {
+  position: relative;
+  background: #000;
+  width: 100%;
+  aspect-ratio: 16/9;
+  max-height: 52vh;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
 #main-video  { width: 100%; height: 100%; object-fit: contain; display: block; }
 #broll-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
-#caption-overlay { position: absolute; bottom: 8%; left: 8%; right: 8%; text-align: center; font-size: 20px; font-weight: 700; color: #fff; text-shadow: 0 0 8px #000, 0 2px 4px #000; display: none; pointer-events: none; }
-#player-info { display: flex; align-items: center; gap: 10px; padding: 8px 0 5px; font-size: 12px; }
-#play-pause  { background: #4a9eff; color: #fff; border: none; border-radius: 4px; padding: 5px 13px; cursor: pointer; font-size: 15px; }
-#play-pause:hover { background: #3a8eef; }
-#clip-name   { color: #888; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#timestamp   { color: #666; flex-shrink: 0; }
-#prog-outer  { height: 3px; background: #2d2d2d; border-radius: 2px; cursor: pointer; }
-#prog-inner  { height: 100%; background: #4a9eff; border-radius: 2px; width: 0%; }
+
+#caption-overlay {
+  position: absolute;
+  bottom: 8%;
+  left: 8%;
+  right: 8%;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 0 8px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.8);
+  display: none;
+  pointer-events: none;
+  font-family: var(--font-ui);
+}
+
+#player-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0 var(--space-2xs);
+}
+
+#play-pause {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  width: 32px;
+  height: 26px;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background var(--dur-short) var(--ease-out);
+}
+#play-pause:hover        { background: var(--accent-hover); }
+#play-pause:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#play-pause:active       { background: var(--accent-press); }
+
+#clip-name {
+  color: var(--text-2);
+  font-size: 12px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#timestamp {
+  color: var(--text-3);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Progress bar — tall invisible click zone, slim visible track inside */
+#prog-outer {
+  height: 20px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  margin-bottom: 2px;
+}
+
+#prog-track {
+  width: 100%;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#prog-inner {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  width: 0%;
+}
 
 /* ── Timeline ── */
-#timeline-section { flex: 1; border-top: 1px solid #2d2d2d; padding: 10px 16px; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-#timeline-header  { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
-#timeline-tracks  { position: relative; flex: 1; }
-.track       { display: flex; align-items: center; height: 26px; margin-bottom: 3px; }
-.track-label { width: 26px; font-size: 10px; color: #555; flex-shrink: 0; }
-.track-content { flex: 1; position: relative; height: 20px; background: #222; border-radius: 2px; overflow: visible; cursor: pointer; }
-.clip-block  { position: absolute; height: 100%; border-radius: 2px; opacity: 0.85; cursor: pointer; }
-.cut-overlay { position: absolute; height: 100%; background: repeating-linear-gradient(45deg,rgba(0,0,0,0.5),rgba(0,0,0,0.5) 2px,transparent 2px,transparent 5px); border-radius: 2px; }
-.broll-block { background: #ff7043 !important; }
-#playhead    { position: absolute; top: 0; width: 2px; background: #fff; pointer-events: none; opacity: 0.8; }
+#timeline-section {
+  flex: 1;
+  border-top: 1px solid var(--border);
+  padding: var(--space-sm) var(--space-md);
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#timeline-header {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: var(--space-sm);
+}
+
+#timeline-tracks { position: relative; flex: 1; }
+
+.track { display: flex; align-items: center; height: 32px; margin-bottom: 4px; }
+
+.track-label {
+  width: 28px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.track-content {
+  flex: 1;
+  position: relative;
+  height: 22px;
+  background: var(--surface);
+  border-radius: 3px;
+  overflow: visible;
+  cursor: pointer;
+  border: 1px solid var(--border-sub);
+}
+
+.clip-block {
+  position: absolute;
+  height: 100%;
+  border-radius: 3px;
+  opacity: 0.88;
+  cursor: pointer;
+}
+
+.cut-overlay {
+  position: absolute;
+  height: 100%;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(0,0,0,0.55),
+    rgba(0,0,0,0.55) 2px,
+    transparent 2px,
+    transparent 5px
+  );
+  border-radius: 3px;
+}
+
+.broll-block { background: var(--broll-accent) !important; }
+
+#playhead {
+  position: absolute;
+  top: 0;
+  width: 1.5px;
+  background: rgba(255,255,255,0.65);
+  pointer-events: none;
+}
 </style>
 </head>
 <body>
@@ -67,7 +336,9 @@ body { background: #1a1a1a; color: #e0e0e0; font-family: monospace; height: 100v
         <span   id="clip-name">—</span>
         <span   id="timestamp">0:00 / 0:00</span>
       </div>
-      <div id="prog-outer"><div id="prog-inner"></div></div>
+      <div id="prog-outer">
+        <div id="prog-track"><div id="prog-inner"></div></div>
+      </div>
     </div>
     <div id="timeline-section">
       <div id="timeline-header">Timeline</div>
@@ -325,7 +596,7 @@ function renderTranscript() {
 
   for (const clip of state.clips) {
     const hdr=document.createElement('div'); hdr.className='clip-header';
-    hdr.textContent=`── ${clip.filename} ──`; content.appendChild(hdr);
+    hdr.textContent=clip.filename; content.appendChild(hdr);
 
     if (clip.transcript_marked) {
       const pre=document.createElement('pre'); pre.className='transcript-text';

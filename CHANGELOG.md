@@ -6,6 +6,19 @@ Format: [Semantic Versioning](https://semver.org) — `MAJOR.MINOR.PATCH`
 
 ---
 
+## [1.2.1] — 2026-05-24
+
+### Preview UI redesign
+
+- Replaced monospace-everywhere aesthetic with Inter (UI chrome) + JetBrains Mono (transcript text only)
+- Full OKLCH CSS custom property token system — near-black base, indigo-purple accent, warm orange b-roll markers
+- Transcript panel: clip headers now uppercase labels with border-bottom separator; cut silences and fillers styled distinctly without italic
+- Player controls: solid accent-colored play button with hover/focus/active states; tabular-nums timestamps; progress bar is now a 20px invisible click zone wrapping a 3px visible track
+- Timeline: taller tracks (32px), subtle border on track backgrounds, 1.5px semi-transparent playhead
+- Custom scrollbar styling on transcript panel
+
+---
+
 ## [1.2.0] — 2026-05-24
 
 ### Browser preview UI

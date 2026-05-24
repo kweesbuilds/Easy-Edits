@@ -76,16 +76,17 @@ Display the clip order AND full transcript as before.
 
 ## Step 2.5 — Launch the preview server
 
-After transcription completes, launch the preview server in the background:
+After transcription completes, launch the preview server in the background then open the browser:
 
-```bash
-python "$USERPROFILE/.claude/skills/easyedits/scripts/preview_server.py" --folder "<folder_path>"
+```powershell
+Start-Process python -ArgumentList "`"$env:USERPROFILE/.claude/skills/easyedits/scripts/preview_server.py`" --folder `"<folder_path>`"" -WindowStyle Hidden
+Start-Sleep -Seconds 2
+Start-Process "http://localhost:5000"
 ```
 
 Tell the user:
 
-> "Preview is ready. Open **http://localhost:5000** in your browser to see the
-> transcript and a live video preview. The browser updates automatically every
+> "Preview is opening in your browser now. The page updates automatically every
 > 2 seconds when you make changes here."
 
 ---

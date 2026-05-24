@@ -6,6 +6,8 @@ description: >
   multiple clips into one timeline, and generate captions — all before touching
   their NLE. Outputs an XML timeline and SRT caption file compatible with
   DaVinci Resolve, Premiere Pro, and Final Cut Pro. Invoke with /easyedits.
+context: fork
+disable-model-invocation: true
 ---
 
 # EasyEdits
@@ -16,6 +18,23 @@ The output XML works with DaVinci Resolve, Premiere Pro, and Final Cut Pro.
 
 Work through the steps below in order. Never skip ahead. Nothing gets written
 to disk until the user gives final approval.
+
+---
+
+## Step 0 — Understand the video type
+
+Ask:
+
+> "What type of video is this? (e.g. talking head, food review, travel vlog, tutorial)"
+
+If the answer is **talking head** → skip the next question and set `BROLL_FOLDER=""`.
+
+Otherwise ask:
+
+> "Will you need b-roll overlays? If yes, what's the full path to your b-roll folder?
+> (e.g. C:\Videos\Broll) — or say 'no' to skip."
+
+Store answers as `VIDEO_TYPE` and `BROLL_FOLDER` for use in later steps.
 
 ---
 
@@ -42,70 +61,62 @@ python "$USERPROFILE/.claude/skills/easyedits/scripts/autoedit.py" --scan --fold
 If any clip used file-mtime for ordering (not embedded metadata), note it with:
 "Note: no embedded date info — using file-modified time for order."
 
-Immediately run transcription without waiting for user input:
+Immediately run transcription (include `--video-type` and `--broll-folder` from Step 0):
 
 ```bash
-python "$USERPROFILE/.claude/skills/easyedits/scripts/autoedit.py" --transcribe --folder "<folder_path>" --order "<comma_separated_filenames>"
+python "$USERPROFILE/.claude/skills/easyedits/scripts/autoedit.py" \
+  --transcribe \
+  --folder "<folder_path>" \
+  --order "<comma_separated_filenames>" \
+  --video-type "<VIDEO_TYPE>" \
+  --broll-folder "<BROLL_FOLDER>"
 ```
 
-Display the clip order AND full transcript together:
+Display the clip order AND full transcript as before.
 
+---
+
+## Step 2.5 — Launch the preview server
+
+After transcription completes, launch the preview server in the background:
+
+```bash
+python "$USERPROFILE/.claude/skills/easyedits/scripts/preview_server.py" --folder "<folder_path>"
 ```
-CLIP ORDER
-──────────────────────────────────────
-  1. clip_007.mp4   (1m 48s, 2:41pm)
-  2. clip_001.mp4   (2m 05s, 2:58pm)
-  3. clip_004.mp4   (3m 12s, 2:34pm)
-──────────────────────────────────────
 
-FULL TRANSCRIPT
-──────────────────────────────────────────────────────────────────────
+Tell the user:
 
-── [1] clip_007.mp4 ──
-
-"Hey guys welcome back so [uh] today we're gonna be talking about
-[... 2.1s silence ...] something I've been wanting to cover for a
-while [um] basically [you know] the whole idea is that you can
-actually automate this entire thing."
-
-── [2] clip_001.mp4 ──
-
-"So the first thing you wanna do— [false start] the first thing
-is just open up the folder [uh] drop your clips in
-[... 3.2s silence ...] and then you just run the command."
-
-── [3] clip_004.mp4 ──
-
-"That's pretty much it honestly [um] if you have any questions
-[... 1.1s silence ...] drop them in the comments below."
-
-──────────────────────────────────────────────────────────────────────
-Cuts marked:  [ ] = filler word   [... Xs ...] = silence   [false start] = restart
-
-34 cuts total — saves 2m 14s
-Original: 8m 40s  →  Output: 6m 26s
-
-Happy with this? You can adjust anything in plain English, or say go.
-```
+> "Preview is ready. Open **http://localhost:5000** in your browser to see the
+> transcript and a live video preview. The browser updates automatically every
+> 2 seconds when you make changes here."
 
 ---
 
 ## Step 3 — Accept plain English adjustments
 
-The user can adjust cuts or clip order in plain English. Examples:
+The user can adjust cuts, clip order, b-roll, and captions by typing in plain English.
+After each change, update `preview_state.json` (`last_modified` must always be bumped)
+and tell the user the change is reflected in the browser.
 
-- "keep the first um in clip 3"
-- "don't cut any silences in clip 2"
-- "cut the word honestly everywhere"
-- "keep everything in clip 1, just cut silences"
-- "that false start in clip 1 — keep it"
-- "lower the silence threshold, too many cuts"
-- "remove you know everywhere except clip 3"
-- "swap clip 1 and clip 2" (reordering is still allowed here — re-transcribe if order changes)
+**Cut adjustments (existing):**
+- `"keep the first um in clip 3"` — update cuts
+- `"don't cut any silences in clip 2"` — update cuts
+- `"cut the word honestly everywhere"` — update cuts
+- `"lower the silence threshold, too many cuts"` — re-run transcribe with adjusted threshold
 
-After each adjustment, re-render only the affected section of the transcript
-preview with the change clearly marked. The rest stays the same. Ask if there
-are any more changes or if they're ready to go.
+**B-roll adjustments:**
+- `"put broll_cafe.mp4 at 0:32 for 5 seconds"` → add entry: `{"filename":"broll_cafe.mp4","path":"<BROLL_FOLDER>/broll_cafe.mp4","at_sec":32,"duration":5,"muted":true}`
+- `"keep the audio on broll_cafe.mp4 at 0:32"` → set `"muted":false` for that entry
+- `"mute the broll at 0:32"` → set `"muted":true`
+- `"remove the broll at 0:32"` → delete the entry
+
+**Caption adjustments:**
+- `"make captions 2 words per line"` → update `captions.words_per_line` in `preview_state.json`
+  and re-run xml_builder with `--words-per-caption 2` to regenerate `captions.entries`
+- `"go back to 7 words per caption"` → reset to 7
+
+After every adjustment, update `preview_state.json` with the new state and set
+`"last_modified": <current unix timestamp>`.
 
 ---
 
@@ -116,10 +127,12 @@ Before executing, show a summary:
 ```
 READY TO EXECUTE
 ──────────────────────────────────────
-  Clips:     3
-  Cuts:      34
+  Clips:      3
+  Cuts:       34
   Time saved: 2m 14s
-  Output:    C:\Users\Chris\Videos\MyVideo\easyedits_output\
+  B-roll:     2 overlays
+  Captions:   2 words per line
+  Output:     C:\Users\Chris\Videos\MyVideo\easyedits_output\
 
   Files to be created:
     edit.xml        → import into DaVinci Resolve, Premiere Pro, or Final Cut Pro
@@ -135,25 +148,40 @@ Type "go" to execute, or keep adjusting.
 
 ## Step 5 — Execute
 
-When the user says go, run:
+When the user says go, run execute then xml_builder (pass `--words-per-caption` from
+the current `captions.words_per_line` in `preview_state.json`):
 
 ```bash
-python "$USERPROFILE/.claude/skills/easyedits/scripts/autoedit.py" --execute --folder "<folder_path>" --order "<comma_separated_filenames>" --cuts "<cuts_json>"
-python "$USERPROFILE/.claude/skills/easyedits/scripts/xml_builder.py" --folder "<folder_path>" --cuts "<cuts_json>" --order "<comma_separated_filenames>"
+python "$USERPROFILE/.claude/skills/easyedits/scripts/autoedit.py" \
+  --execute \
+  --folder "<folder_path>" \
+  --order "<comma_separated_filenames>" \
+  --cuts "<cuts_json>"
+
+python "$USERPROFILE/.claude/skills/easyedits/scripts/xml_builder.py" \
+  --plan "<folder_path>/easyedits_output/cut_plan.json" \
+  --words-per-caption <words_per_line_from_state>
 ```
 
-Output files go into a subfolder called `easyedits_output` inside the user's
-clip folder so originals are never mixed with outputs.
+Then stop the preview server by reading its PID and killing the process:
+
+```bash
+# Read PID
+$pid = Get-Content "<folder_path>\easyedits_output\preview_server.pid"
+Stop-Process -Id $pid -Force
+```
 
 Tell the user:
 
 > "Done. Your files are in [folder_path]\easyedits_output\
 >
-> **DaVinci Resolve:** File → Import Timeline → Import AAF, EDL, XML → select edit.xml, then File → Import Subtitles → select captions.srt
+> **DaVinci Resolve:** File → Import Timeline → Import AAF, EDL, XML → select edit.xml,
+> then File → Import Subtitles → select captions.srt
 >
 > **Premiere Pro:** File → Import → select edit.xml, then File → Import → select captions.srt
 >
-> **Final Cut Pro:** File → Import → XML → select edit.xml, then File → Import → Captions → select captions.srt"
+> **Final Cut Pro:** File → Import → XML → select edit.xml,
+> then File → Import → Captions → select captions.srt"
 
 ---
 
@@ -161,6 +189,9 @@ Tell the user:
 
 - **FFmpeg not found:** Tell the user to run `winget install ffmpeg` in a terminal and restart Claude Code.
 - **faster-whisper not installed:** Tell the user to run `pip install faster-whisper` and retry.
+- **Flask not installed:** Tell the user to run `pip install flask` and retry.
 - **No video files found in folder:** Ask the user to double-check the path.
-- **File timestamps unreliable (file-mtime fallback):** Warn the user at Step 2 — "Some clips don't have embedded date info so I'm using file-modified time, which may be less accurate. Double-check the order looks right."
-- **Single clip:** Works fine — skip the ordering step and go straight to transcription.
+- **Port 5000 in use:** The server auto-tries 5001, 5002 — tell the user which port opened.
+- **B-roll file not found:** Warn the user, skip that b-roll entry, continue.
+- **File timestamps unreliable (file-mtime fallback):** Warn the user at Step 2.
+- **Single clip:** Works fine — skip the ordering step.

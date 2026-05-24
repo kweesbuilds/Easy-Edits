@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 import socket
+import subprocess
 import sys
 from pathlib import Path
 
@@ -20,6 +21,9 @@ app = Flask(__name__)
 FOLDER: Path = None
 STATE_PATH: Path = None
 SCRIPT_DIR = Path(__file__).parent
+
+# Tracks the running server across projects so new runs can kill the old one
+GLOBAL_PID_FILE = SCRIPT_DIR / ".preview_server.pid"
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -69,14 +73,33 @@ def _pid_path(output_dir: Path) -> Path:
     return output_dir / "preview_server.pid"
 
 
+def kill_existing_server():
+    """Kill any previously running preview server (any project)."""
+    if not GLOBAL_PID_FILE.exists():
+        return
+    try:
+        old_pid = int(GLOBAL_PID_FILE.read_text().strip())
+        subprocess.run(
+            ["taskkill", "/F", "/PID", str(old_pid)],
+            capture_output=True
+        )
+    except Exception:
+        pass
+    GLOBAL_PID_FILE.unlink(missing_ok=True)
+
+
 def write_pid(output_dir: Path):
-    _pid_path(output_dir).write_text(str(os.getpid()))
+    pid_str = str(os.getpid())
+    _pid_path(output_dir).write_text(pid_str)
+    GLOBAL_PID_FILE.write_text(pid_str)
 
 
 def cleanup_pid(output_dir: Path):
     p = _pid_path(output_dir)
     if p.exists():
         p.unlink()
+    if GLOBAL_PID_FILE.exists():
+        GLOBAL_PID_FILE.unlink(missing_ok=True)
 
 
 # ── Port helpers ──────────────────────────────────────────────────────────────
@@ -103,6 +126,8 @@ def main():
     parser.add_argument("--folder", required=True)
     parser.add_argument("--port",   type=int, default=5000)
     args = parser.parse_args()
+
+    kill_existing_server()
 
     FOLDER = Path(args.folder)
     output_dir = FOLDER / "easyedits_output"

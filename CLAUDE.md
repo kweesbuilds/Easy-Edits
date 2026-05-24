@@ -129,4 +129,4 @@ basically, literally, right, okay so, so yeah, i mean, honestly, actually, obvio
 - "No module named flask" → user needs to run `pip install flask`
 - "No video files found" → check the folder path, must use full Windows path
 - "clip not found" in DaVinci → source files have been moved or renamed since running the skill
-- "Port already in use" → server auto-tries next port (5001, 5002), tells user which opened
+- "Port already in use" → server kills previous EasyEdits server automatically on startup; if 5000 is still blocked by something else it tries 5001, 5002

@@ -6,6 +6,16 @@ Format: [Semantic Versioning](https://semver.org) — `MAJOR.MINOR.PATCH`
 
 ---
 
+## [1.2.3] — 2026-05-24
+
+### Auto-kill stale preview server on new run
+
+- `preview_server.py` now writes a global PID file (`scripts/.preview_server.pid`) on startup
+- Any new run kills the old server automatically — no more stale servers holding port 5000
+- Preview always opens on port 5000; port bumping to 5001/5002 only happens if something else occupies 5000
+
+---
+
 ## [1.2.2] — 2026-05-24
 
 ### Caption positioning defaults

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EasyEdits Preview</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #1a1a1a; color: #e0e0e0; font-family: monospace; height: 100vh; overflow: hidden; }
+#app { display: flex; height: 100vh; }
+
+/* ── Left panel ── */
+#transcript-panel { width: 380px; min-width: 260px; border-right: 1px solid #2d2d2d; display: flex; flex-direction: column; }
+#stats-bar { padding: 10px 14px; background: #222; border-bottom: 1px solid #2d2d2d; font-size: 12px; color: #888; }
+#transcript-content { flex: 1; overflow-y: auto; padding: 14px; font-size: 13px; line-height: 1.8; }
+.clip-header { color: #555; font-size: 11px; margin: 14px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.transcript-text { white-space: pre-wrap; }
+.cut-silence { color: #484848; font-style: italic; }
+.cut-filler { text-decoration: line-through; color: #555; }
+.cut-false-start { color: #484848; font-style: italic; }
+.broll-marker { color: #4a9eff; font-size: 11px; display: block; margin: 6px 0; }
+
+/* ── Right panel ── */
+#right-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+/* ── Video player ── */
+#player-section { padding: 14px 16px 10px; flex-shrink: 0; }
+#video-container { position: relative; background: #000; width: 100%; aspect-ratio: 16/9; max-height: 52vh; }
+#main-video  { width: 100%; height: 100%; object-fit: contain; display: block; }
+#broll-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+#caption-overlay { position: absolute; bottom: 8%; left: 8%; right: 8%; text-align: center; font-size: 20px; font-weight: 700; color: #fff; text-shadow: 0 0 8px #000, 0 2px 4px #000; display: none; pointer-events: none; }
+#player-info { display: flex; align-items: center; gap: 10px; padding: 8px 0 5px; font-size: 12px; }
+#play-pause  { background: #4a9eff; color: #fff; border: none; border-radius: 4px; padding: 5px 13px; cursor: pointer; font-size: 15px; }
+#play-pause:hover { background: #3a8eef; }
+#clip-name   { color: #888; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#timestamp   { color: #666; flex-shrink: 0; }
+#prog-outer  { height: 3px; background: #2d2d2d; border-radius: 2px; cursor: pointer; }
+#prog-inner  { height: 100%; background: #4a9eff; border-radius: 2px; width: 0%; }
+
+/* ── Timeline ── */
+#timeline-section { flex: 1; border-top: 1px solid #2d2d2d; padding: 10px 16px; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+#timeline-header  { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+#timeline-tracks  { position: relative; flex: 1; }
+.track       { display: flex; align-items: center; height: 26px; margin-bottom: 3px; }
+.track-label { width: 26px; font-size: 10px; color: #555; flex-shrink: 0; }
+.track-content { flex: 1; position: relative; height: 20px; background: #222; border-radius: 2px; overflow: visible; cursor: pointer; }
+.clip-block  { position: absolute; height: 100%; border-radius: 2px; opacity: 0.85; cursor: pointer; }
+.cut-overlay { position: absolute; height: 100%; background: repeating-linear-gradient(45deg,rgba(0,0,0,0.5),rgba(0,0,0,0.5) 2px,transparent 2px,transparent 5px); border-radius: 2px; }
+.broll-block { background: #ff7043 !important; }
+#playhead    { position: absolute; top: 0; width: 2px; background: #fff; pointer-events: none; opacity: 0.8; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="transcript-panel">
+    <div id="stats-bar">Loading…</div>
+    <div id="transcript-content"></div>
+  </div>
+  <div id="right-panel">
+    <div id="player-section">
+      <div id="video-container">
+        <video id="main-video"  preload="metadata"></video>
+        <video id="broll-video" preload="metadata"></video>
+        <div  id="caption-overlay"></div>
+      </div>
+      <div id="player-info">
+        <button id="play-pause">&#9654;</button>
+        <span   id="clip-name">—</span>
+        <span   id="timestamp">0:00 / 0:00</span>
+      </div>
+      <div id="prog-outer"><div id="prog-inner"></div></div>
+    </div>
+    <div id="timeline-section">
+      <div id="timeline-header">Timeline</div>
+      <div id="timeline-tracks">
+        <div class="track"><span class="track-label">V2</span><div class="track-content" id="v2-content"></div></div>
+        <div class="track"><span class="track-label">V1</span><div class="track-content" id="v1-content"></div></div>
+        <div class="track"><span class="track-label">A1</span><div class="track-content" id="a1-content"></div></div>
+        <div id="playhead" style="height:78px;top:0;left:0;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let state = null, timeline = [], totalDuration = 0;
+let currentClipIdx = 0, globalPosition = 0;
+let isPlaying = false, lastModified = 0, activeBroll = null;
+
+const mainVideo  = document.getElementById('main-video');
+const brollVideo = document.getElementById('broll-video');
+const captionEl  = document.getElementById('caption-overlay');
+const playBtn    = document.getElementById('play-pause');
+const clipNameEl = document.getElementById('clip-name');
+const tsEl       = document.getElementById('timestamp');
+const progEl     = document.getElementById('prog-inner');
+const playhead   = document.getElementById('playhead');
+const v1El = document.getElementById('v1-content');
+const v2El = document.getElementById('v2-content');
+const a1El = document.getElementById('a1-content');
+const COLORS = ['#4a9eff','#ff7043','#66bb6a','#ab47bc','#ffa726'];
+
+function fmt(s) {
+  return `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,'0')}`;
+}
+
+// ── State polling ──────────────────────────────────────────────────────────────
+async function fetchState() {
+  try {
+    const data = await fetch('/state').then(r => r.json());
+    if (data.last_modified === lastModified) return;
+    const clipsChanged = !state ||
+      JSON.stringify(state.clips.map(c=>c.filename)) !==
+      JSON.stringify(data.clips.map(c=>c.filename));
+    lastModified = data.last_modified;
+    state = data;
+    buildVirtualTimeline();
+    renderTranscript();
+    renderTimelineUI();
+    if (clipsChanged && state.clips.length > 0) { currentClipIdx = 0; loadClip(0, false); }
+  } catch (_) {}
+}
+
+// ── Virtual timeline ───────────────────────────────────────────────────────────
+function buildVirtualTimeline() {
+  timeline = []; totalDuration = 0;
+  if (!state) return;
+  for (const clip of state.clips) {
+    const cuts = (state.cuts||[]).filter(c=>c.clip===clip.filename).sort((a,b)=>a.start-b.start);
+    const segs = []; let pos = 0;
+    for (const cut of cuts) {
+      if (cut.start > pos + 0.01) segs.push({start:pos, end:cut.start});
+      pos = cut.end;
+    }
+    if (pos < clip.duration_sec - 0.01) segs.push({start:pos, end:clip.duration_sec});
+    if (segs.length === 0) segs.push({start:0, end:clip.duration_sec});
+    for (const seg of segs) {
+      timeline.push({clip:clip.filename, localStart:seg.start, localEnd:seg.end,
+                     globalStart:totalDuration, globalEnd:totalDuration+(seg.end-seg.start)});
+      totalDuration += seg.end - seg.start;
+    }
+  }
+}
+
+// ── Clip loading ───────────────────────────────────────────────────────────────
+function loadClip(idx, autoPlay=true) {
+  if (!state || idx >= state.clips.length) return;
+  const clip = state.clips[idx];
+  currentClipIdx = idx;
+  mainVideo.src = `/video/${encodeURIComponent(clip.filename)}`;
+  clipNameEl.textContent = clip.filename;
+  if (autoPlay && isPlaying) mainVideo.play().catch(()=>{});
+}
+
+// ── Global position ────────────────────────────────────────────────────────────
+function getGlobalPos() {
+  if (!state || !state.clips[currentClipIdx]) return 0;
+  const name = state.clips[currentClipIdx].filename;
+  const t = mainVideo.currentTime;
+  for (const seg of timeline) {
+    if (seg.clip === name && t >= seg.localStart - 0.05 && t <= seg.localEnd + 0.05)
+      return seg.globalStart + Math.max(0, t - seg.localStart);
+  }
+  return 0;
+}
+
+// ── Seek to global position ────────────────────────────────────────────────────
+function seekToGlobal(target) {
+  const seg = timeline.find(s => target >= s.globalStart && target < s.globalEnd);
+  if (!seg) return;
+  const idx = state.clips.findIndex(c => c.filename === seg.clip);
+  const local = seg.localStart + (target - seg.globalStart);
+  if (idx !== currentClipIdx) {
+    currentClipIdx = idx;
+    clipNameEl.textContent = seg.clip;
+    mainVideo.src = `/video/${encodeURIComponent(seg.clip)}`;
+    mainVideo.addEventListener('loadedmetadata', () => {
+      mainVideo.currentTime = local;
+      if (isPlaying) mainVideo.play().catch(()=>{});
+    }, {once:true});
+  } else {
+    mainVideo.currentTime = local;
+  }
+}
+
+// ── timeupdate ─────────────────────────────────────────────────────────────────
+mainVideo.addEventListener('timeupdate', () => {
+  if (!state || !state.clips[currentClipIdx]) return;
+  const name = state.clips[currentClipIdx].filename;
+  const t = mainVideo.currentTime;
+  // Skip over cuts
+  for (const cut of (state.cuts||[]).filter(c=>c.clip===name)) {
+    if (t >= cut.start && t < cut.end - 0.02) { mainVideo.currentTime = cut.end + 0.05; return; }
+  }
+  globalPosition = getGlobalPos();
+  updateCaption(); updateBroll(); updateProgress(); updatePlayhead();
+});
+
+mainVideo.addEventListener('ended', () => {
+  if (state && currentClipIdx + 1 < state.clips.length) {
+    currentClipIdx++;
+    loadClip(currentClipIdx, true);
+    mainVideo.play().catch(()=>{});
+  } else { isPlaying=false; playBtn.textContent='▶'; }
+});
+
+// ── Play / Pause ───────────────────────────────────────────────────────────────
+playBtn.addEventListener('click', () => {
+  if (isPlaying) { mainVideo.pause(); } else { mainVideo.play().catch(()=>{}); }
+});
+mainVideo.addEventListener('play',  () => { isPlaying=true;  playBtn.textContent='⏸'; });
+mainVideo.addEventListener('pause', () => { isPlaying=false; playBtn.textContent='▶'; });
+
+// ── B-roll overlay ─────────────────────────────────────────────────────────────
+function updateBroll() {
+  const broll = (state&&state.broll)||[];
+  const cur = broll.find(b => globalPosition>=b.at_sec && globalPosition<b.at_sec+b.duration);
+  if (cur && cur!==activeBroll) {
+    activeBroll = cur;
+    brollVideo.src = `/broll/${encodeURIComponent(cur.filename)}`;
+    brollVideo.muted = cur.muted !== false;
+    brollVideo.style.display = 'block';
+    brollVideo.currentTime = globalPosition - cur.at_sec;
+    brollVideo.play().catch(()=>{});
+  } else if (!cur && activeBroll) {
+    activeBroll = null;
+    brollVideo.pause(); brollVideo.style.display='none'; brollVideo.src='';
+  }
+}
+
+// ── Captions ───────────────────────────────────────────────────────────────────
+function updateCaption() {
+  if (!state||!state.captions||!state.clips[currentClipIdx]) return;
+  const name = state.clips[currentClipIdx].filename;
+  const t = mainVideo.currentTime;
+  const e = (state.captions.entries||[]).find(e=>e.clip===name&&t>=e.start&&t<=e.end);
+  captionEl.textContent = e ? e.text : '';
+  captionEl.style.display = e ? 'block' : 'none';
+}
+
+// ── Progress bar ───────────────────────────────────────────────────────────────
+function updateProgress() {
+  const pct = totalDuration>0 ? (globalPosition/totalDuration)*100 : 0;
+  progEl.style.width = `${pct}%`;
+  tsEl.textContent = `${fmt(globalPosition)} / ${fmt(totalDuration)}`;
+}
+document.getElementById('prog-outer').addEventListener('click', e => {
+  const r = e.currentTarget.getBoundingClientRect();
+  seekToGlobal(((e.clientX-r.left)/r.width)*totalDuration);
+});
+
+// ── Playhead ───────────────────────────────────────────────────────────────────
+function updatePlayhead() {
+  const v1r = v1El.getBoundingClientRect();
+  const ttr = document.getElementById('timeline-tracks').getBoundingClientRect();
+  const pct = totalDuration>0 ? (globalPosition/totalDuration)*100 : 0;
+  playhead.style.left = `${(v1r.left-ttr.left)+(pct/100)*v1r.width}px`;
+}
+
+// ── Timeline UI ────────────────────────────────────────────────────────────────
+function renderTimelineUI() {
+  if (!state || totalDuration===0) return;
+  [v1El,v2El,a1El].forEach(el=>el.innerHTML='');
+
+  for (let i=0; i<state.clips.length; i++) {
+    const clip = state.clips[i];
+    const segs = timeline.filter(s=>s.clip===clip.filename);
+    if (!segs.length) continue;
+    const gStart=segs[0].globalStart, gEnd=segs[segs.length-1].globalEnd;
+    const left=`${(gStart/totalDuration)*100}%`, width=`${((gEnd-gStart)/totalDuration)*100}%`;
+    const color=COLORS[i%COLORS.length];
+
+    [v1El,a1El].forEach(trackEl => {
+      const block=document.createElement('div');
+      block.className='clip-block';
+      block.style.cssText=`left:${left};width:${width};background:${color};`;
+      block.title=`${clip.filename} (${fmt(gEnd-gStart)})`;
+      // Cut overlays (approximate visual position within original clip duration)
+      for (const cut of (state.cuts||[]).filter(c=>c.clip===clip.filename)) {
+        if (clip.duration_sec > 0) {
+          const cLeft=`${(cut.start/clip.duration_sec)*100}%`;
+          const cWidth=`${((cut.end-cut.start)/clip.duration_sec)*100}%`;
+          const ov=document.createElement('div');
+          ov.className='cut-overlay'; ov.style.cssText=`left:${cLeft};width:${cWidth};`;
+          block.appendChild(ov);
+        }
+      }
+      block.addEventListener('click', e => {
+        const r=block.getBoundingClientRect();
+        const localFrac=(e.clientX-r.left)/r.width;
+        seekToGlobal(gStart+(gEnd-gStart)*localFrac);
+        e.stopPropagation();
+      });
+      trackEl.appendChild(block);
+    });
+  }
+
+  for (const br of (state.broll||[])) {
+    const block=document.createElement('div');
+    block.className='clip-block broll-block';
+    block.style.cssText=`left:${(br.at_sec/totalDuration)*100}%;width:${(br.duration/totalDuration)*100}%;`;
+    block.title=`${br.filename} (${br.duration}s)${br.muted!==false?' [muted]':''}`;
+    v2El.appendChild(block);
+  }
+}
+
+// ── Transcript ─────────────────────────────────────────────────────────────────
+function renderTranscript() {
+  if (!state) return;
+  const totalOrig = state.clips.reduce((s,c)=>s+c.duration_sec,0);
+  const cutTime   = (state.cuts||[]).reduce((s,c)=>s+(c.end-c.start),0);
+  document.getElementById('stats-bar').textContent =
+    `${(state.cuts||[]).length} cuts · saves ${fmt(cutTime)} · output ${fmt(totalOrig-cutTime)}`;
+
+  const content = document.getElementById('transcript-content');
+  content.innerHTML = '';
+
+  // Compute per-clip global offsets for b-roll marker placement
+  const clipOffsets = {};
+  let off = 0;
+  for (const clip of state.clips) {
+    clipOffsets[clip.filename] = off;
+    const clipCutTime=(state.cuts||[]).filter(c=>c.clip===clip.filename).reduce((s,c)=>s+(c.end-c.start),0);
+    off += clip.duration_sec - clipCutTime;
+  }
+
+  for (const clip of state.clips) {
+    const hdr=document.createElement('div'); hdr.className='clip-header';
+    hdr.textContent=`── ${clip.filename} ──`; content.appendChild(hdr);
+
+    if (clip.transcript_marked) {
+      const pre=document.createElement('pre'); pre.className='transcript-text';
+      pre.innerHTML=clip.transcript_marked
+        .replace(/\[(\.\.\.[^\]]+)\]/g, m=>`<span class="cut-silence">${m}</span>`)
+        .replace(/\[false start\]/g, m=>`<span class="cut-false-start">${m}</span>`)
+        .replace(/\[([^\]]+)\]/g, m=>`<span class="cut-filler">${m}</span>`);
+      content.appendChild(pre);
+    }
+
+    const clipGlobalStart = clipOffsets[clip.filename]||0;
+    const clipCutDur=(state.cuts||[]).filter(c=>c.clip===clip.filename).reduce((s,c)=>s+(c.end-c.start),0);
+    const clipGlobalEnd=clipGlobalStart+(clip.duration_sec-clipCutDur);
+
+    for (const br of (state.broll||[])) {
+      if (br.at_sec>=clipGlobalStart && br.at_sec<clipGlobalEnd) {
+        const mk=document.createElement('span'); mk.className='broll-marker';
+        mk.textContent=`▶ ${br.filename} (${br.duration}s at ${fmt(br.at_sec)})`;
+        content.appendChild(mk);
+      }
+    }
+  }
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────────
+fetchState();
+setInterval(fetchState, 2000);
+</script>
+</body>
+</html>

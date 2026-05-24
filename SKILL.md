@@ -6,8 +6,6 @@ description: >
   multiple clips into one timeline, and generate captions — all before touching
   their NLE. Outputs an XML timeline and SRT caption file compatible with
   DaVinci Resolve, Premiere Pro, and Final Cut Pro. Invoke with /easyedits.
-context: fork
-disable-model-invocation: true
 ---
 
 # EasyEdits

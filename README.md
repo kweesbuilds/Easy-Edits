@@ -26,9 +26,9 @@ Built as a Claude Code skill. Runs 100% locally. No API costs, no cloud uploads,
 
 | Requirement | Version | Install |
 |-------------|---------|---------|
-| Windows | 10 or 11 | — |
+| OS | Windows 10+, macOS 12+, or Linux | — |
 | Python | 3.10+ | [python.org](https://python.org) |
-| FFmpeg | Any recent | `winget install ffmpeg` |
+| FFmpeg | Any recent | See below |
 | faster-whisper | Latest | `pip install faster-whisper` |
 | Flask | Latest | `pip install flask` — required for browser preview |
 | Claude Code | Latest | [code.claude.com](https://code.claude.com) |
@@ -38,22 +38,34 @@ Built as a Claude Code skill. Runs 100% locally. No API costs, no cloud uploads,
 
 ## Installation
 
-**1. Install dependencies**
+**1. Install FFmpeg**
+
+| Platform | Command |
+|----------|---------|
+| Windows | `winget install ffmpeg` |
+| macOS | `brew install ffmpeg` |
+| Ubuntu/Debian | `sudo apt install ffmpeg` |
+| Fedora | `sudo dnf install ffmpeg` |
+
+**2. Install Python dependencies**
 
 ```
-winget install ffmpeg
 pip install faster-whisper flask
 ```
 
-**2. Install the skill**
+**3. Install the skill**
 
-Open PowerShell and run:
-
+**Windows (PowerShell):**
 ```powershell
 git clone https://github.com/kweesbuilds/Easy-Edits.git "$env:USERPROFILE\.claude\skills\easyedits"
 ```
 
-**3. Verify**
+**macOS / Linux:**
+```bash
+git clone https://github.com/kweesbuilds/Easy-Edits.git "$HOME/.claude/skills/easyedits"
+```
+
+**4. Verify**
 
 Open a terminal and run:
 
@@ -62,7 +74,7 @@ python --version
 ffmpeg -version
 ```
 
-Both should print version numbers. If either says "not recognized", FFmpeg or Python isn't on your PATH — reinstall and tick "Add to PATH" during setup.
+Both should print version numbers. If either says "not recognized", FFmpeg or Python isn't on your PATH — reinstall and tick "Add to PATH" during setup (Windows), or check your shell's `$PATH` (macOS/Linux).
 
 **4. Open Claude Code**
 
@@ -149,7 +161,7 @@ After transcription, EasyEdits opens a local preview at `localhost:5000`:
 
 - **Left panel** — transcript with cuts highlighted (silences greyed, fillers struck through)
 - **Right panel** — video player that skips cuts in real time, with b-roll overlay and captions
-- **Timeline** — V2/V1/A1 tracks, playhead, click to seek
+- **Timeline** — CAP/V2/V1/A1 tracks with zoom, playhead, click to seek; caption blocks resizable from edges
 
 All adjustments are still made by typing to Claude. The browser updates automatically every 2 seconds.
 
@@ -167,8 +179,8 @@ B-roll audio is muted by default (your voiceover plays underneath).
 ### Caption customisation
 
 ```
-make captions 2 words per line
-go back to 7 words per caption
+make captions 5 words per line
+go back to 3 words per caption
 ```
 
 ---
@@ -188,7 +200,9 @@ Run `winget install ffmpeg`, then close and reopen your terminal.
 Run `pip install faster-whisper`.
 
 **"No video files found in folder"**
-Check the folder path — on Windows use backslashes: `C:\Users\YourName\Videos\MyClips`
+Check the folder path. Use the full absolute path:
+- Windows: `C:\Users\YourName\Videos\MyClips`
+- macOS/Linux: `/Users/YourName/Videos/MyClips`
 
 **Wrong clip order detected**
 Some cameras don't embed creation timestamps (some GoPro models, older Android devices). EasyEdits warns you when it falls back to file-modified time. Just reorder manually at the prompt.

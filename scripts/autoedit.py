@@ -53,7 +53,12 @@ def check_dependency(cmd: list[str], name: str) -> bool:
     except (FileNotFoundError, subprocess.CalledProcessError):
         print(f"ERROR: {name} not found. ", end="")
         if name == "FFmpeg":
-            print("Run: winget install ffmpeg")
+            if sys.platform == "win32":
+                print("Run: winget install ffmpeg")
+            elif sys.platform == "darwin":
+                print("Run: brew install ffmpeg")
+            else:
+                print("Run: sudo apt install ffmpeg  (Debian/Ubuntu)  or  sudo dnf install ffmpeg  (Fedora)")
         elif name == "faster-whisper":
             print("Run: pip install faster-whisper")
         return False

@@ -76,12 +76,20 @@ Display the clip order AND full transcript as before.
 
 ## Step 2.5 — Launch the preview server
 
-After transcription completes, launch the preview server in the background then open the browser:
+After transcription completes, launch the preview server in the background then open the browser.
 
+**Windows (PowerShell):**
 ```powershell
 Start-Process python -ArgumentList "`"$env:USERPROFILE/.claude/skills/easyedits/scripts/preview_server.py`" --folder `"<folder_path>`"" -WindowStyle Hidden
 Start-Sleep -Seconds 2
 Start-Process "http://localhost:5000"
+```
+
+**macOS / Linux:**
+```bash
+nohup python3 "$HOME/.claude/skills/easyedits/scripts/preview_server.py" --folder "<folder_path>" > /dev/null 2>&1 &
+sleep 2
+open "http://localhost:5000"   # macOS — use xdg-open on Linux
 ```
 
 Tell the user:
@@ -162,12 +170,17 @@ python "$USERPROFILE/.claude/skills/easyedits/scripts/xml_builder.py" \
   --words-per-caption <words_per_line_from_state>
 ```
 
-Then stop the preview server by reading its PID and killing the process:
+Then stop the preview server by reading its PID and killing the process.
 
-```bash
-# Read PID
+**Windows (PowerShell):**
+```powershell
 $pid = Get-Content "<folder_path>\easyedits_output\preview_server.pid"
 Stop-Process -Id $pid -Force
+```
+
+**macOS / Linux:**
+```bash
+kill $(cat "<folder_path>/easyedits_output/preview_server.pid")
 ```
 
 Tell the user:

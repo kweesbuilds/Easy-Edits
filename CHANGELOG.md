@@ -6,6 +6,16 @@ Format: [Semantic Versioning](https://semver.org) — `MAJOR.MINOR.PATCH`
 
 ---
 
+## [1.4.1] — 2026-05-25
+
+### Bug fixes
+
+- **Fixed: duplicate captions / silences not cut on export** — `--execute` expected a clip-centric cuts file (one object per clip, each with a `cuts` array), but the skill was passing a flat list of cut objects. `xml_builder.py` treated each cut as a separate uncut clip, producing one full uncut copy of the timeline per cut. SKILL.md and CLAUDE.md now document the required format explicitly.
+- **Fixed: SRT captions missing words that span a cut boundary** — Words whose audio starts inside a silence region but ends inside the keep segment (e.g. "Hi" clipped at the tail by a leading-silence cut) were excluded from captions. Filter corrected from a start-position check to an overlap check: `w["end"] > clip_in and w["start"] < out_sec`.
+- **Fixed: PowerShell `$pid` reserved-variable crash** — `$pid` is a read-only automatic variable in PowerShell 5.1. Stop-server commands updated to use `$serverPid`.
+
+---
+
 ## [1.2.3] — 2026-05-24
 
 ### Auto-kill stale preview server on new run

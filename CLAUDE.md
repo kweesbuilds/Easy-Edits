@@ -102,6 +102,36 @@ autoedit.py:
 xml_builder.py:
   --words-per-caption  Words per SRT caption line (default 3)
 
+## Critical: --cuts file format for --execute
+
+The `--cuts` argument is a path to a JSON file. The file must be a **clip-centric array** — one object per clip, each containing a `cuts` array:
+
+```json
+[
+  {
+    "clip": "clip1.mp4",
+    "cuts": [
+      {"type": "silence", "start": 0.0, "end": 2.19, "duration": 2.19},
+      {"type": "silence", "start": 3.66, "end": 4.63, "duration": 0.97}
+    ]
+  },
+  {
+    "clip": "clip2.mp4",
+    "cuts": [
+      {"type": "silence", "start": 0.0, "end": 1.84, "duration": 1.84}
+    ]
+  }
+]
+```
+
+**Never pass a flat list of cut objects.** A flat list causes `mode_execute` to treat every individual cut as a separate clip, producing one full uncut copy of the timeline per cut (e.g. 6 cuts → 6 duplicate uncut sequences in DaVinci).
+
+Always write this file without BOM:
+```powershell
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText("<path>", $json, $utf8NoBom)
+```
+
 ## Default settings (change in autoedit.py if needed)
 
 - Silence threshold: -35dB
@@ -171,6 +201,11 @@ basically, literally, right, okay so, so yeah, i mean, honestly, actually, obvio
 - "Port already in use" → server kills previous EasyEdits server automatically on startup; if 5000 is still blocked by something else it tries 5001, 5002
 
 ## Changelog
+
+### v1.4.1 — 2026-05-25
+- **Fixed: duplicate captions / silences not cut** — `--cuts` file must be clip-centric (see "Critical: --cuts file format" above); flat cut lists caused one uncut copy per cut
+- **Fixed: SRT missing boundary-spanning words** — overlap filter (`w["end"] > clip_in and w["start"] < out_sec`) replaces start-position check so words spanning a cut boundary appear correctly
+- **Fixed: PowerShell `$pid` crash** — `$pid` is read-only in PS 5.1; stop-server commands now use `$serverPid`
 
 ### v1.4.0 — 2026-05-25
 - **CAP timeline track** — captions rendered as draggable blocks in NLE timeline, positioned above V2/V1/A1; click to seek; left/right edge handles only (no body move)

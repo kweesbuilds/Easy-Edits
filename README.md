@@ -76,7 +76,7 @@ ffmpeg -version
 
 Both should print version numbers. If either says "not recognized", FFmpeg or Python isn't on your PATH — reinstall and tick "Add to PATH" during setup (Windows), or check your shell's `$PATH` (macOS/Linux).
 
-**4. Open Claude Code**
+**5. Open Claude Code**
 
 ```
 claude
@@ -209,6 +209,12 @@ Some cameras don't embed creation timestamps (some GoPro models, older Android d
 
 **"Clip not found" error on XML import (DaVinci / Premiere / FCP)**
 Make sure your original clip files are still in the same folder — the XML references them by path. Don't move or rename your source clips after running the skill.
+
+**Duplicate clips / silences not cut in DaVinci**
+This means the cuts file was written in the wrong format when executing. Delete the `easyedits_output` folder and run `/easyedits` again. The latest version of the skill writes the cuts file in the correct clip-centric format automatically.
+
+**No audio after importing edit.xml into DaVinci Resolve**
+This is a DaVinci XML import quirk — the audio links are there but sometimes don't render on the first open. Fix: save the project immediately after import (Ctrl+S / Cmd+S), close DaVinci completely, then reopen the project. Audio should come through on the second open.
 
 ---
 

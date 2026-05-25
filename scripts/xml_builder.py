@@ -292,10 +292,10 @@ def build_srt(keep_segments: list[dict], output_dir: Path, words_per_line: int =
         tl_offset  = seg["timeline_in_sec"]
         clip_in    = seg["in_sec"]
 
-        # Filter words that overlap with this keep segment
+        # Include words that overlap with this keep segment (handles words spanning cut boundaries)
         seg_words = [
             w for w in words
-            if w["end"] > clip_in - 0.05 and w["start"] < seg["out_sec"] + 0.05
+            if w["end"] > clip_in and w["start"] < seg["out_sec"]
         ]
 
         if not seg_words:

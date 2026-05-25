@@ -155,17 +155,58 @@ Type "go" to execute, or keep adjusting.
 
 ## Step 5 — Execute
 
-When the user says go, run execute then xml_builder (pass `--words-per-caption` from
-the current `captions.words_per_line` in `preview_state.json`):
+When the user says go, first write the approved cuts to a JSON file in **clip-centric format**
+(one object per clip, each with a `cuts` array), then run execute and xml_builder.
 
+**CRITICAL — cuts file format.** The `--cuts` argument is a file path. The file must look like:
+```json
+[
+  {
+    "clip": "clip1.mp4",
+    "cuts": [
+      {"type": "silence", "start": 0.0, "end": 2.19, "duration": 2.19}
+    ]
+  },
+  {
+    "clip": "clip2.mp4",
+    "cuts": [
+      {"type": "silence", "start": 0.0, "end": 1.84, "duration": 1.84}
+    ]
+  }
+]
+```
+A flat list of cut objects (not grouped by clip) will produce one uncut duplicate per cut in the output.
+
+Write the file without BOM (Windows):
+```powershell
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText("<folder_path>\easyedits_output\cuts_input.json", $cutsJson, $utf8NoBom)
+```
+
+Then run execute and xml_builder (pass `--words-per-caption` from `captions.words_per_line` in `preview_state.json`):
+
+**Windows (PowerShell):**
+```powershell
+python "$env:USERPROFILE/.claude/skills/easyedits/scripts/autoedit.py" `
+  --execute `
+  --folder "<folder_path>" `
+  --order "<comma_separated_filenames>" `
+  --cuts "<folder_path>\easyedits_output\cuts_input.json"
+
+python "$env:USERPROFILE/.claude/skills/easyedits/scripts/xml_builder.py" `
+  --plan "<folder_path>\easyedits_output\cut_plan.json" `
+  --words-per-caption <words_per_line_from_state>
+```
+
+**macOS / Linux:**
 ```bash
-python "$USERPROFILE/.claude/skills/easyedits/scripts/autoedit.py" \
+python "$HOME/.claude/skills/easyedits/scripts/autoedit.py" \
   --execute \
   --folder "<folder_path>" \
   --order "<comma_separated_filenames>" \
-  --cuts "<cuts_json>"
+  --cuts "<folder_path>/easyedits_output/cuts_input.json"
 
-python "$USERPROFILE/.claude/skills/easyedits/scripts/xml_builder.py" \
+python "$HOME/.claude/skills/easyedits/scripts/xml_builder.py" \
   --plan "<folder_path>/easyedits_output/cut_plan.json" \
   --words-per-caption <words_per_line_from_state>
 ```
@@ -174,8 +215,8 @@ Then stop the preview server by reading its PID and killing the process.
 
 **Windows (PowerShell):**
 ```powershell
-$pid = Get-Content "<folder_path>\easyedits_output\preview_server.pid"
-Stop-Process -Id $pid -Force
+$serverPid = Get-Content "<folder_path>\easyedits_output\preview_server.pid"
+Stop-Process -Id $serverPid -Force
 ```
 
 **macOS / Linux:**

@@ -10,12 +10,14 @@ Usage:
 import argparse
 import json
 import os
+import platform
 import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 
-from flask import Flask, abort, jsonify, send_file
+from flask import Flask, abort, jsonify, request, send_file
 
 app = Flask(__name__)
 FOLDER: Path = None
@@ -31,6 +33,19 @@ GLOBAL_PID_FILE = SCRIPT_DIR / ".preview_server.pid"
 @app.route("/")
 def index():
     return send_file(SCRIPT_DIR / "preview.html")
+
+
+@app.route("/update-state", methods=["POST"])
+def update_state():
+    if not STATE_PATH or not STATE_PATH.exists():
+        return jsonify({"error": "state not found"}), 404
+    data = request.get_json()
+    import time
+    data["last_modified"] = time.time()
+    with open(STATE_PATH, "w", encoding="utf-8") as f:
+        import json as _json
+        _json.dump(data, f, indent=2, ensure_ascii=False)
+    return jsonify({"ok": True})
 
 
 @app.route("/state")
@@ -73,19 +88,43 @@ def _pid_path(output_dir: Path) -> Path:
     return output_dir / "preview_server.pid"
 
 
-def kill_existing_server():
-    """Kill any previously running preview server (any project)."""
-    if not GLOBAL_PID_FILE.exists():
-        return
+def _kill_port(port: int):
+    """Kill whatever process is listening on port, handles orphaned/crashed sessions."""
     try:
-        old_pid = int(GLOBAL_PID_FILE.read_text().strip())
-        subprocess.run(
-            ["taskkill", "/F", "/PID", str(old_pid)],
-            capture_output=True
-        )
+        if platform.system() == "Windows":
+            result = subprocess.run(["netstat", "-ano"], capture_output=True, text=True)
+            for line in result.stdout.splitlines():
+                if f":{port} " in line and "LISTENING" in line:
+                    pid = int(line.split()[-1])
+                    if pid != os.getpid():
+                        subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
+                    break
+        else:
+            result = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)
+            for pid_str in result.stdout.strip().splitlines():
+                pid = int(pid_str.strip())
+                if pid != os.getpid():
+                    subprocess.run(["kill", "-9", str(pid)], capture_output=True)
     except Exception:
         pass
-    GLOBAL_PID_FILE.unlink(missing_ok=True)
+
+
+def kill_existing_server(port: int = 5000):
+    """Kill any previously running preview server (any project)."""
+    if GLOBAL_PID_FILE.exists():
+        try:
+            old_pid = int(GLOBAL_PID_FILE.read_text().strip())
+            if platform.system() == "Windows":
+                subprocess.run(["taskkill", "/F", "/PID", str(old_pid)], capture_output=True)
+            else:
+                subprocess.run(["kill", "-9", str(old_pid)], capture_output=True)
+        except Exception:
+            pass
+        GLOBAL_PID_FILE.unlink(missing_ok=True)
+
+    # Also evict whatever is holding the port — catches sessions with no PID file
+    _kill_port(port)
+    time.sleep(0.4)  # let OS release the port before we bind
 
 
 def write_pid(output_dir: Path):
@@ -127,7 +166,7 @@ def main():
     parser.add_argument("--port",   type=int, default=5000)
     args = parser.parse_args()
 
-    kill_existing_server()
+    kill_existing_server(args.port)
 
     FOLDER = Path(args.folder)
     output_dir = FOLDER / "easyedits_output"

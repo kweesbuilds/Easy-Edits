@@ -112,7 +112,7 @@ and tell the user the change is reflected in the browser.
 **Caption adjustments:**
 - `"make captions 2 words per line"` → update `captions.words_per_line` in `preview_state.json`
   and re-run xml_builder with `--words-per-caption 2` to regenerate `captions.entries`
-- `"go back to 7 words per caption"` → reset to 7
+- `"go back to 3 words per caption"` → reset to 3
 
 After every adjustment, update `preview_state.json` with the new state and set
 `"last_modified": <current unix timestamp>`.

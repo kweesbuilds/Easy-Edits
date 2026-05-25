@@ -479,7 +479,7 @@ def mode_transcribe(folder: Path, order: list[str], overrides: dict = None,
         clip_cuts = r.get("cuts", [])
         words = r.get("words", [])
         clip_entries = generate_caption_entries(
-            words, cuts=clip_cuts, words_per_line=7, clip_name=r["clip"]
+            words, cuts=clip_cuts, words_per_line=3, clip_name=r["clip"]
         )
         all_caption_entries.extend(clip_entries)
         state_clips.append({
@@ -504,7 +504,7 @@ def mode_transcribe(folder: Path, order: list[str], overrides: dict = None,
         "cuts": all_state_cuts,
         "broll": [],
         "captions": {
-            "words_per_line": 7,
+            "words_per_line": 3,
             "entries": all_caption_entries
         }
     }

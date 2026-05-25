@@ -100,7 +100,7 @@ autoedit.py:
   --broll-folder  Path to folder containing b-roll clips
 
 xml_builder.py:
-  --words-per-caption  Words per SRT caption line (default 7)
+  --words-per-caption  Words per SRT caption line (default 3)
 
 ## Default settings (change in autoedit.py if needed)
 
@@ -108,7 +108,46 @@ xml_builder.py:
 - Minimum silence duration: 0.6 seconds
 - Padding around cuts: 0.05 seconds each side
 - Whisper model: medium
-- Words per caption line: 7
+- Words per caption line: 3
+
+## Preview UI layout (preview.html)
+
+Three-panel layout:
+- **Left panel (35%)** — transcript with clip headers, cut markers (silence greyed, fillers struck, false starts dimmed), b-roll markers, stats bar showing cut counts
+- **Right panel (65%)** — video player (object-fit contain), transport controls (skip back/prev/play/next/skip forward), volume slider, progress bar with seek
+- **Bottom panel (full width)** — NLE-style timeline with zoom in/out buttons and horizontal scroll; labeled track sidebar
+
+Timeline track order (top → bottom): **CAP** · V2 b-roll · V1 video · A1 audio
+
+Stats bar shows: `{N} cuts · {N} silences · {N} words removed` — not time saved.
+
+Caption entries use **local clip timestamps** + `clip` field (not global position). The `updateCap` function matches `entry.clip === currentClipName && localTime >= entry.start && localTime <= entry.end`.
+
+### CAP track — caption timeline blocks
+- Blocks are **resize-only** — no body drag. Left/right edge handles change start/end times.
+- Resizing ripples adjacent captions: expanding right pushes later captions forward; contracting left pulls earlier captions back. Captions never overlap.
+- Clicking a block seeks to that caption's start time.
+- Direct delta math: `entry.start += dSec` (not `f.localStart + (ng - f.globalStart)`) — correct because local_delta = global_delta within a kept segment.
+
+### Timeline zoom
+- `setZoom(level)` sets `#tlc` width to `level × 100%` inside `#tl-scroll` (`overflow-x: auto`)
+- Range: 1× (fit panel) → 12×. Playhead auto-scrolls horizontally during playback.
+
+### Seamless clip transitions (double-buffer video)
+- Two `<video>` elements (`video-a`, `video-b`) swap roles; one plays while the other preloads.
+- `preloadClip(idx)` hooks `loadedmetadata` to pre-seek to `firstKeptTime(filename)` so the buffer is already at the correct frame before the swap.
+- `transitionToNext()` handles the swap; triggered by `onEnded` (clips with no trailing silence) **or** by `onTimeUpdate` when the current cut reaches the clip end (`cut.end >= clip.duration_sec - 0.15`) — this fires before `ended`, eliminating the gap.
+- `swapVideos()` pauses the outgoing clip's audio before swapping.
+- `firstKeptTime(clipFilename)` walks leading cuts to find the start of the first non-cut segment.
+
+### Cut-aware preview playback
+- `onTimeUpdate` skips over every cut region in real time: `if t >= cut.start && t < cut.end - 0.02 → seek to cut.end + 0.05`
+- End-of-clip cuts (`cut.end >= clip.duration_sec - 0.15`) call `transitionToNext()` instead of seeking past end.
+
+### Preview state updates
+- Server exposes `POST /update-state` — Claude POSTs full state JSON; server writes UTF-8 and bumps `last_modified`.
+- Claude may edit `preview_state.json` directly via the Edit tool.
+- **Never use PowerShell `ConvertTo-Json | Set-Content`** — writes UTF-16 LE BOM, breaks `json.load()`.
 
 ## Caption overlay defaults (preview.html — do not change these)
 
@@ -130,3 +169,14 @@ basically, literally, right, okay so, so yeah, i mean, honestly, actually, obvio
 - "No video files found" → check the folder path, must use full Windows path
 - "clip not found" in DaVinci → source files have been moved or renamed since running the skill
 - "Port already in use" → server kills previous EasyEdits server automatically on startup; if 5000 is still blocked by something else it tries 5001, 5002
+
+## Changelog
+
+### v1.4.0 — 2026-05-25
+- **CAP timeline track** — captions rendered as draggable blocks in NLE timeline, positioned above V2/V1/A1; click to seek; left/right edge handles only (no body move)
+- **Caption ripple** — resizing a caption ripples adjacent ones forward/back so they never overlap; direct delta math for accurate local time updates
+- **Timeline zoom** — zoom in/out buttons (1×–12×), `#tlc` scales inside `#tl-scroll` with `overflow-x: auto`; playhead auto-scrolls during playback
+- **Seamless clip transitions** — double-buffer swap pre-seeks to `firstKeptTime`; `transitionToNext` fires at entry into end-of-clip silence cut rather than waiting for the `ended` event; outgoing audio paused immediately on swap
+- **Cut-aware preview playback** — `onTimeUpdate` skips all cut regions live; `firstKeptTime()` helper used on both preload and `loadClip`
+- **`/update-state` POST endpoint** in `preview_server.py` — Claude POSTs state changes instead of requiring a script re-run; writes UTF-8 explicitly
+- **Default captions changed to 3 words per line** — better fit for talking head / vertical video short-form content (was 7)

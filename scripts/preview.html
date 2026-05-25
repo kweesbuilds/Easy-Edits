@@ -1,696 +1,813 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>EasyEdits Preview</title>
+<meta charset="UTF-8"><title>EasyEdits Preview</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* Hallmark · pre-emit critique: P4 H4 E5 S5 R5 V4
- * tool-UI redesign · genre: atmospheric · theme: Dark Studio
- * font-display: Inter 400/500/600 · font-mono: JetBrains Mono 400
- */
-
 :root {
-  --bg:           oklch(6% 0.005 280);
-  --surface:      oklch(9% 0.005 280);
-  --elevated:     oklch(13% 0.006 280);
-  --border:       oklch(19% 0.008 280);
-  --border-sub:   oklch(14% 0.008 280);
+  --bg:      #090909;
+  --surf:    #111113;
+  --elev:    #1a1a1e;
+  --b1:      rgba(255,255,255,0.09);
+  --b2:      rgba(255,255,255,0.06);
+  --accent:  oklch(52% 0.22 20);
+  --ac-h:    oklch(48% 0.22 20);
+  --ac-p:    oklch(44% 0.22 20);
+  --t1:      rgba(255,255,255,0.88);
+  --t2:      rgba(255,255,255,0.55);
+  --t3:      rgba(255,255,255,0.35);
+  --t4:      rgba(255,255,255,0.22);
+  --t5:      rgba(255,255,255,0.12);
+  --font:    'Inter', system-ui, sans-serif;
+  --ease:    cubic-bezier(0.16,1,0.3,1);
+  --dur:     150ms;
+  --rh:      28px;
+  --tv2:     60px;
+  --tv1:     60px;
+  --ta1:     38px;
+  --tcap:    32px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--t2);font-family:var(--font);font-size:13px;line-height:1}
 
-  --accent:       oklch(56% 0.19 276);
-  --accent-hover: oklch(52% 0.19 276);
-  --accent-press: oklch(48% 0.19 276);
-  --accent-dim:   oklch(56% 0.19 276 / 12%);
+/* ── App shell ── */
+#app{display:flex;flex-direction:column;height:100vh}
+#top{display:flex;flex:1;min-height:0}
 
-  --text-1:       oklch(94% 0.005 280);
-  --text-2:       oklch(60% 0.013 280);
-  --text-3:       oklch(34% 0.015 280);
+/* ── Transcript panel ── */
+#tp{
+  width:35%;min-width:200px;flex-shrink:0;
+  border-right:1px solid var(--b1);
+  background:var(--surf);
+  display:flex;flex-direction:column;
+  padding:20px 20px 0;gap:4px;
+}
+#tp-label{
+  font-size:10px;font-weight:600;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--t3);flex-shrink:0;
+}
+#stats-bar{font-size:11px;color:var(--t4);flex-shrink:0;padding-bottom:8px;border-bottom:1px solid var(--b2)}
+#tc{flex:1;overflow-y:auto;padding-bottom:20px;scrollbar-width:thin;scrollbar-color:var(--b1) transparent}
+#tc::-webkit-scrollbar{width:3px}
+#tc::-webkit-scrollbar-thumb{background:var(--b1);border-radius:2px}
+.ch{
+  font-size:9.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--t4);
+  margin-top:16px;margin-bottom:6px;
+  padding-bottom:5px;border-bottom:1px solid var(--b2);
+}
+.ch:first-child{margin-top:8px}
+.tw{
+  font-family:ui-monospace,monospace;font-size:11.5px;
+  line-height:2.1;color:var(--t2);word-wrap:break-word;padding:2px 0 8px;
+}
+.wk{color:var(--t2)}
+.cs{color:rgba(255,255,255,0.18)}
+.cf{text-decoration:line-through;text-decoration-color:var(--t5);color:rgba(255,255,255,0.22)}
+.cfs{color:rgba(255,255,255,0.18)}
+.sm{
+  display:inline-block;color:rgba(255,255,255,0.2);
+  font-family:var(--font);font-size:10px;font-weight:500;
+  letter-spacing:.03em;vertical-align:middle;margin:0 1px;
+}
+.bm{color:oklch(55% 0.1 42);font-size:10.5px;display:block;margin:5px 0}
+.cap-section{margin:6px 0 14px}
+.cap-section-label{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--t5);margin-bottom:5px}
+.cap-list{display:flex;flex-wrap:wrap;gap:3px}
+.cap-chip{
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+  border-radius:3px;padding:3px 7px;font-size:10px;color:var(--t3);
+  cursor:pointer;transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);
+  white-space:nowrap;
+}
+.cap-chip:hover{border-color:var(--accent);color:var(--t1)}
 
-  --cut-silence:  oklch(26% 0.015 280);
-  --cut-filler:   oklch(34% 0.016 280);
-  --broll-accent: oklch(67% 0.14 42);
-
-  --font-ui:   'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-
-  --space-2xs: 0.25rem;
-  --space-xs:  0.5rem;
-  --space-sm:  0.75rem;
-  --space-md:  1rem;
-  --space-lg:  1.5rem;
-  --space-xl:  2rem;
-
-  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-short: 180ms;
+/* ── Video panel ── */
+#vp{flex:1;display:flex;flex-direction:column;background:#000;min-width:0}
+#va{flex:1;min-height:0;position:relative;background:#000;overflow:hidden}
+.main-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
+#broll-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+#cap{
+  position:absolute;bottom:25%;left:20%;right:20%;
+  text-align:center;font-size:13px;font-weight:600;color:#fff;
+  text-shadow:0 0 8px rgba(0,0,0,.9),0 2px 4px rgba(0,0,0,.8);
+  display:none;pointer-events:none;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  background: var(--bg);
-  color: var(--text-1);
-  font-family: var(--font-ui);
-  font-size: 13px;
-  line-height: 1;
-  height: 100vh;
-  overflow: hidden;
+/* ── Controls bar ── */
+#cb{
+  background:var(--bg);
+  border-top:1px solid var(--b1);
+  padding:8px 20px 10px;
+  display:flex;flex-direction:column;gap:6px;flex-shrink:0;
+}
+#po{height:18px;display:flex;align-items:center;cursor:pointer}
+#po:hover #pt{height:5px}
+#pt{width:100%;height:3px;background:var(--b1);border-radius:3px;overflow:hidden;transition:height var(--dur) var(--ease)}
+#pi{height:100%;background:var(--accent);border-radius:3px;width:0%;transition:width .1s linear}
+#cr{display:flex;align-items:center;justify-content:space-between}
+#ts{color:var(--t3);font-size:11px;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;min-width:90px}
+#cn{color:var(--t4);font-size:10px;min-width:90px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tr{display:flex;align-items:center;gap:6px}
+.tb{
+  background:none;border:none;color:var(--t3);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  padding:4px;border-radius:4px;
+  transition:color var(--dur) var(--ease),background var(--dur) var(--ease);
+}
+.tb:hover{color:var(--t1);background:rgba(255,255,255,.06)}
+.tb svg{width:14px;height:14px}
+#pp{
+  background:var(--accent);color:#fff;border:none;border-radius:50%;
+  width:36px;height:36px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background var(--dur) var(--ease),transform var(--dur) var(--ease);
+}
+#pp svg{width:14px;height:14px}
+#pp:hover{background:var(--ac-h)}
+#pp:active{background:var(--ac-p);transform:scale(.95)}
+#vc{display:flex;align-items:center;gap:6px;min-width:90px;justify-content:flex-end;color:var(--t3)}
+#vc svg{width:14px;height:14px;flex-shrink:0}
+#vs{
+  width:60px;appearance:none;height:3px;border-radius:3px;
+  background:var(--b1);outline:none;cursor:pointer;
+}
+#vs::-webkit-slider-thumb{
+  appearance:none;width:10px;height:10px;border-radius:50%;
+  background:var(--t2);cursor:pointer;
 }
 
-#app { display: flex; height: 100vh; }
-
-/* ── Left panel ── */
-#transcript-panel {
-  width: 360px;
-  min-width: 240px;
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
+/* ── Timeline section ── */
+#tls{border-top:1px solid var(--b1);background:var(--surf);display:flex;flex-direction:column;flex-shrink:0}
+#tlh{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:7px 16px;border-bottom:1px solid var(--b1);flex-shrink:0;
 }
+.pl{font-size:10px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--t4)}
+#tlz{display:flex;align-items:center;gap:2px;color:var(--t5)}
+#tlz button{background:none;border:none;color:var(--t5);cursor:pointer;padding:2px;display:flex}
+#tlz button svg{width:14px;height:14px}
 
-#stats-bar {
-  padding: var(--space-sm) var(--space-md);
-  background: var(--elevated);
-  border-bottom: 1px solid var(--border);
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-2);
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 0;
+/* timeline-tracks = flex row */
+#tt{display:flex}
+
+/* Track label sidebar */
+#tlab{width:110px;flex-shrink:0;border-right:1px solid var(--b1);display:flex;flex-direction:column}
+.tlr{height:var(--rh);display:flex;align-items:center;padding:0 8px;border-bottom:1px solid var(--b2)}
+.tlr span{font-size:9.5px;font-family:ui-monospace,monospace;color:var(--t3)}
+.trow{
+  display:flex;align-items:center;gap:4px;
+  padding:0 8px;border-bottom:1px solid var(--b2);background:var(--surf);
 }
+.trow.v2{height:var(--tv2)}.trow.v1{height:var(--tv1)}.trow.a1{height:var(--ta1)}.trow.cap{height:var(--tcap)}
+.trow>svg{width:11px;height:11px;flex-shrink:0;color:var(--t4)}
+.tn{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t2)}
+.tsp{flex:1}
+.ti{color:var(--t5);display:flex;align-items:center}
+.ti svg{width:10px;height:10px}
 
-#transcript-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-md);
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+/* Scrollable timeline wrapper */
+#tl-scroll{flex:1;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:var(--b1) transparent}
+#tl-scroll::-webkit-scrollbar{height:3px}
+#tl-scroll::-webkit-scrollbar-thumb{background:var(--b1);border-radius:2px}
+
+/* Timeline content — variable width for zoom */
+#tlc{display:flex;flex-direction:column;position:relative;min-width:100%}
+#ru{
+  height:var(--rh);border-bottom:1px solid var(--b2);
+  display:flex;align-items:flex-end;padding:0 8px 4px;flex-shrink:0;
 }
+#rum{display:flex;width:100%;justify-content:space-between}
+#rum span{font-size:9.5px;font-family:ui-monospace,monospace;color:var(--t4)}
+.tc{position:relative;cursor:pointer;background:rgba(255,255,255,.015);border-bottom:1px solid var(--b2)}
+#v2-content{height:var(--tv2)}
+#v1-content{height:var(--tv1)}
+#a1-content{height:var(--ta1)}
+#cap-content{height:var(--tcap)}
 
-#transcript-content::-webkit-scrollbar { width: 4px; }
-#transcript-content::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 2px;
+/* Caption blocks on timeline */
+.cap-block{
+  position:absolute;top:3px;bottom:3px;border-radius:3px;
+  background:oklch(52% 0.14 280 / 0.7);border:1px solid oklch(65% 0.14 280 / 0.35);
+  overflow:hidden;cursor:pointer;display:flex;align-items:center;padding:0 6px;min-width:2px;
+  user-select:none;
 }
-
-.clip-header {
-  color: var(--text-3);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  margin: var(--space-lg) 0 var(--space-xs);
-  padding-bottom: var(--space-xs);
-  border-bottom: 1px solid var(--border-sub);
+.cap-block:hover{background:oklch(58% 0.14 280 / 0.9)}
+.cap-block-text{font-size:8px;color:rgba(255,255,255,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.cap-resize-l,.cap-resize-r{
+  position:absolute;top:0;bottom:0;width:10px;cursor:ew-resize;z-index:2;
+  background:rgba(255,255,255,.18);transition:background var(--dur);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
 }
-
-.clip-header:first-child { margin-top: var(--space-xs); }
-
-.transcript-text {
-  white-space: pre-wrap;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 1.85;
-  color: var(--text-1);
+.cap-resize-l::after,.cap-resize-r::after{
+  content:'';width:2px;height:10px;border-radius:1px;
+  background:rgba(255,255,255,.5);
 }
+.cap-resize-l{left:0;border-radius:3px 0 0 3px}
+.cap-resize-r{right:0;border-radius:0 3px 3px 0}
+.cap-resize-l:hover,.cap-resize-r:hover{background:rgba(255,255,255,.4)}
 
-.transcript-words {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 2.1;
-  color: var(--text-1);
-  padding: var(--space-xs) 0 var(--space-sm);
-  word-wrap: break-word;
+/* Clip blocks */
+.cb2{
+  position:absolute;top:8px;bottom:8px;border-radius:4px;
+  overflow:hidden;cursor:pointer;
+  display:flex;align-items:flex-end;padding:0 6px 4px;
+  transition:opacity var(--dur) var(--ease);
 }
-
-.word-kept      { color: var(--text-1); }
-.cut-silence    { color: var(--cut-silence); font-style: normal; }
-.cut-filler     { text-decoration: line-through; text-decoration-color: var(--text-3); color: var(--cut-filler); }
-.cut-false-start { color: var(--cut-silence); }
-
-.silence-marker {
-  display: inline-block;
-  color: var(--cut-silence);
-  font-family: var(--font-ui);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.03em;
-  opacity: 0.65;
-  vertical-align: middle;
-  margin: 0 1px;
+#a1-content .cb2{top:5px;bottom:5px}
+.cbl{
+  font-size:9.5px;font-weight:500;color:rgba(255,255,255,.7);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  opacity:0;z-index:1;position:relative;
 }
-.broll-marker {
-  color: var(--broll-accent);
-  font-size: 11px;
-  font-family: var(--font-ui);
-  display: block;
-  margin: var(--space-sm) 0;
-  letter-spacing: 0.01em;
+.cb2:hover{opacity:.85}
+.cb2:hover .cbl{opacity:1}
+.co{
+  position:absolute;top:0;bottom:0;
+  background:repeating-linear-gradient(90deg,transparent,transparent 8px,rgba(0,0,0,.35) 8px,rgba(0,0,0,.35) 9px);
+  pointer-events:none;
 }
+.brl{background:#3d0f1a !important}
 
-/* ── Right panel ── */
-#right-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  background: var(--bg);
+/* Playhead */
+#ph{
+  position:absolute;top:0;bottom:0;width:2px;
+  background:var(--accent);pointer-events:none;z-index:20;
 }
-
-/* ── Video player ── */
-#player-section {
-  padding: var(--space-md) var(--space-md) var(--space-sm);
-  flex-shrink: 0;
-}
-
-#video-container {
-  position: relative;
-  background: #000;
-  width: 100%;
-  aspect-ratio: 16/9;
-  max-height: 52vh;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-#main-video  { width: 100%; height: 100%; object-fit: contain; display: block; }
-#broll-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
-
-#caption-overlay {
-  position: absolute;
-  bottom: 25%;
-  left: 20%;
-  right: 20%;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 600;
-  color: #fff;
-  text-shadow: 0 0 8px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.8);
-  display: none;
-  pointer-events: none;
-  font-family: var(--font-ui);
-}
-
-#player-info {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-xs) 0 var(--space-2xs);
-}
-
-#play-pause {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 3px;
-  width: 32px;
-  height: 26px;
-  font-size: 10px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: background var(--dur-short) var(--ease-out);
-}
-#play-pause:hover        { background: var(--accent-hover); }
-#play-pause:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-#play-pause:active       { background: var(--accent-press); }
-
-#clip-name {
-  color: var(--text-2);
-  font-size: 12px;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-#timestamp {
-  color: var(--text-3);
-  font-size: 12px;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-/* Progress bar — tall invisible click zone, slim visible track inside */
-#prog-outer {
-  height: 20px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  margin-bottom: 2px;
-}
-
-#prog-track {
-  width: 100%;
-  height: 3px;
-  background: var(--border);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-#prog-inner {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 2px;
-  width: 0%;
-}
-
-/* ── Timeline ── */
-#timeline-section {
-  flex: 1;
-  border-top: 1px solid var(--border);
-  padding: var(--space-sm) var(--space-md);
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-#timeline-header {
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  margin-bottom: var(--space-sm);
-}
-
-#timeline-tracks { position: relative; flex: 1; }
-
-.track { display: flex; align-items: center; height: 32px; margin-bottom: 4px; }
-
-.track-label {
-  width: 28px;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  flex-shrink: 0;
-}
-
-.track-content {
-  flex: 1;
-  position: relative;
-  height: 22px;
-  background: var(--surface);
-  border-radius: 3px;
-  overflow: visible;
-  cursor: pointer;
-  border: 1px solid var(--border-sub);
-}
-
-.clip-block {
-  position: absolute;
-  height: 100%;
-  border-radius: 3px;
-  opacity: 0.88;
-  cursor: pointer;
-}
-
-.cut-overlay {
-  position: absolute;
-  height: 100%;
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(0,0,0,0.55),
-    rgba(0,0,0,0.55) 2px,
-    transparent 2px,
-    transparent 5px
-  );
-  border-radius: 3px;
-}
-
-.broll-block { background: var(--broll-accent) !important; }
-
-#playhead {
-  position: absolute;
-  top: 0;
-  width: 1.5px;
-  background: rgba(255,255,255,0.65);
-  pointer-events: none;
+#ph::before{
+  content:'';position:absolute;top:-1px;left:50%;
+  transform:translateX(-50%) rotate(45deg);
+  width:8px;height:8px;background:var(--accent);border-radius:1px;
 }
 </style>
 </head>
 <body>
 <div id="app">
-  <div id="transcript-panel">
-    <div id="stats-bar">Loading…</div>
-    <div id="transcript-content"></div>
-  </div>
-  <div id="right-panel">
-    <div id="player-section">
-      <div id="video-container">
-        <video id="main-video"  preload="metadata"></video>
+
+  <div id="top">
+    <!-- Transcript -->
+    <div id="tp">
+      <span id="tp-label">Transcript</span>
+      <div id="stats-bar">Loading…</div>
+      <div id="tc"></div>
+    </div>
+
+    <!-- Video -->
+    <div id="vp">
+      <div id="va">
+        <video id="video-a" class="main-vid" preload="auto"></video>
+        <video id="video-b" class="main-vid" preload="auto" style="display:none"></video>
         <video id="broll-video" preload="metadata"></video>
-        <div  id="caption-overlay"></div>
+        <div id="cap"></div>
       </div>
-      <div id="player-info">
-        <button id="play-pause">&#9654;</button>
-        <span   id="clip-name">—</span>
-        <span   id="timestamp">0:00 / 0:00</span>
-      </div>
-      <div id="prog-outer">
-        <div id="prog-track"><div id="prog-inner"></div></div>
-      </div>
-    </div>
-    <div id="timeline-section">
-      <div id="timeline-header">Timeline</div>
-      <div id="timeline-tracks">
-        <div class="track"><span class="track-label">V2</span><div class="track-content" id="v2-content"></div></div>
-        <div class="track"><span class="track-label">V1</span><div class="track-content" id="v1-content"></div></div>
-        <div class="track"><span class="track-label">A1</span><div class="track-content" id="a1-content"></div></div>
-        <div id="playhead" style="height:78px;top:0;left:0;"></div>
+      <div id="cb">
+        <div id="po"><div id="pt"><div id="pi"></div></div></div>
+        <div id="cr">
+          <span id="ts">0:00 / 0:00</span>
+          <div id="tr">
+            <button class="tb" title="Skip back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg></button>
+            <button class="tb" title="Prev frame"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+            <button id="pp">
+              <svg id="pli" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+              <svg id="pai" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+            </button>
+            <button class="tb" title="Next frame"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+            <button class="tb" title="Skip forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></button>
+          </div>
+          <div id="vc">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            <input id="vs" type="range" min="0" max="1" step="0.01" value="1">
+          </div>
+        </div>
+        <span id="cn" style="font-size:10px;color:var(--t4);text-align:center;display:block">—</span>
       </div>
     </div>
   </div>
+
+  <!-- Timeline -->
+  <div id="tls">
+    <div id="tlh">
+      <span class="pl">Timeline</span>
+      <div id="tlz">
+        <button id="zoom-out" title="Zoom out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        <button id="zoom-in" title="Zoom in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      </div>
+    </div>
+    <div id="tt">
+      <!-- Labels sidebar -->
+      <div id="tlab">
+        <div class="tlr"><span id="rt">00:00:00</span></div>
+        <div class="trow cap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M6 12h4"/><path d="M6 15h12"/></svg>
+          <span class="tn">CAP</span>
+        </div>
+        <div class="trow v2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/></svg>
+          <span class="tn">V2</span><span class="tsp"></span>
+          <span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span>
+        </div>
+        <div class="trow v1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/></svg>
+          <span class="tn">V1</span><span class="tsp"></span>
+          <span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span>
+        </div>
+        <div class="trow a1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          <span class="tn">A1</span><span class="tsp"></span>
+          <span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span>
+        </div>
+      </div>
+      <!-- Scrollable content: ruler + tracks -->
+      <div id="tl-scroll">
+        <div id="tlc">
+          <div id="ru"><div id="rum"><span>00:00</span><span>00:30</span><span>01:00</span><span>01:30</span><span>02:00</span></div></div>
+          <div class="tc" id="cap-content"></div>
+          <div class="tc" id="v2-content"></div>
+          <div class="tc" id="v1-content"></div>
+          <div class="tc" id="a1-content"></div>
+          <div id="ph"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 <script>
-// ── State ──────────────────────────────────────────────────────────────────────
-let state = null, timeline = [], totalDuration = 0;
-let currentClipIdx = 0, globalPosition = 0;
-let isPlaying = false, lastModified = 0, activeBroll = null;
+let state=null,timeline=[],totalDuration=0;
+let currentClipIdx=0,globalPosition=0;
+let isPlaying=false,lastModified=0,activeBroll=null;
+let zoomLevel=1;
 
-const mainVideo  = document.getElementById('main-video');
-const brollVideo = document.getElementById('broll-video');
-const captionEl  = document.getElementById('caption-overlay');
-const playBtn    = document.getElementById('play-pause');
-const clipNameEl = document.getElementById('clip-name');
-const tsEl       = document.getElementById('timestamp');
-const progEl     = document.getElementById('prog-inner');
-const playhead   = document.getElementById('playhead');
-const v1El = document.getElementById('v1-content');
-const v2El = document.getElementById('v2-content');
-const a1El = document.getElementById('a1-content');
-const COLORS = ['#4a9eff','#ff7043','#66bb6a','#ab47bc','#ffa726'];
+const videoA    =document.getElementById('video-a');
+const videoB    =document.getElementById('video-b');
+let mainVideo   =videoA;
+let preloadVideo=videoB;
+const brollVideo=document.getElementById('broll-video');
+const capEl     =document.getElementById('cap');
+const ppBtn     =document.getElementById('pp');
+const cnEl      =document.getElementById('cn');
+const tsEl      =document.getElementById('ts');
+const piEl      =document.getElementById('pi');
+const ph        =document.getElementById('ph');
+const v1El      =document.getElementById('v1-content');
+const v2El      =document.getElementById('v2-content');
+const a1El      =document.getElementById('a1-content');
+const pliEl     =document.getElementById('pli');
+const paiEl     =document.getElementById('pai');
+const capContent=document.getElementById('cap-content');
+const tlc       =document.getElementById('tlc');
+const tlScroll  =document.getElementById('tl-scroll');
 
-function fmt(s) {
-  return `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,'0')}`;
+const COLORS=['#2d4460','#2d4438','#3d2d52','#2d4444','#4a3d2d'];
+
+function fmt(s){return`${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,'0')}`}
+
+function setZoom(level){
+  zoomLevel=Math.max(1,Math.min(12,level));
+  tlc.style.width=zoomLevel===1?'100%':`${zoomLevel*100}%`;
+  updatePH();
+}
+document.getElementById('zoom-in').addEventListener('click',()=>setZoom(zoomLevel+0.5));
+document.getElementById('zoom-out').addEventListener('click',()=>setZoom(zoomLevel-0.5));
+
+function firstKeptTime(clipFilename){
+  const cuts=(state?.cuts||[]).filter(c=>c.clip===clipFilename).sort((a,b)=>a.start-b.start);
+  let t=0;
+  for(const cut of cuts){
+    if(cut.start<=t+0.02){t=cut.end+0.05;}else break;
+  }
+  return t;
 }
 
-// ── State polling ──────────────────────────────────────────────────────────────
-async function fetchState() {
-  try {
-    const data = await fetch('/state').then(r => r.json());
-    if (data.last_modified === lastModified) return;
-    const clipsChanged = !state ||
-      JSON.stringify(state.clips.map(c=>c.filename)) !==
+function swapVideos(){
+  mainVideo.pause();                        // kill audio from outgoing clip
+  preloadVideo.style.display='block';
+  mainVideo.style.display='none';
+  [mainVideo,preloadVideo]=[preloadVideo,mainVideo];
+}
+function preloadClip(idx){
+  if(!state||idx>=state.clips.length)return;
+  const c=state.clips[idx];
+  preloadVideo.src=`/video/${encodeURIComponent(c.filename)}`;
+  preloadVideo.dataset.clip=c.filename;
+  preloadVideo.load();
+  // pre-seek to first kept frame so the swap is instant
+  preloadVideo.addEventListener('loadedmetadata',()=>{
+    const fkt=firstKeptTime(c.filename);
+    if(fkt>0.01)preloadVideo.currentTime=fkt;
+  },{once:true});
+}
+
+async function fetchState(){
+  try{
+    const data=await fetch('/state').then(r=>r.json());
+    if(data.last_modified===lastModified)return;
+    const clipsChanged=!state||
+      JSON.stringify(state.clips.map(c=>c.filename))!==
       JSON.stringify(data.clips.map(c=>c.filename));
-    lastModified = data.last_modified;
-    state = data;
+    lastModified=data.last_modified;
+    state=data;
     buildVirtualTimeline();
     renderTranscript();
     renderTimelineUI();
-    if (clipsChanged && state.clips.length > 0) { currentClipIdx = 0; loadClip(0, false); }
-  } catch (_) {}
+    if(clipsChanged&&state.clips.length>0){currentClipIdx=0;loadClip(0,false);}
+  }catch(_){}
 }
 
-// ── Virtual timeline ───────────────────────────────────────────────────────────
-function buildVirtualTimeline() {
-  timeline = []; totalDuration = 0;
-  if (!state) return;
-  for (const clip of state.clips) {
-    const cuts = (state.cuts||[]).filter(c=>c.clip===clip.filename).sort((a,b)=>a.start-b.start);
-    const segs = []; let pos = 0;
-    for (const cut of cuts) {
-      if (cut.start > pos + 0.01) segs.push({start:pos, end:cut.start});
-      pos = cut.end;
+function buildVirtualTimeline(){
+  timeline=[];totalDuration=0;
+  if(!state)return;
+  for(const clip of state.clips){
+    const cuts=(state.cuts||[]).filter(c=>c.clip===clip.filename).sort((a,b)=>a.start-b.start);
+    const segs=[];let pos=0;
+    for(const cut of cuts){
+      if(cut.start>pos+0.01)segs.push({start:pos,end:cut.start});
+      pos=cut.end;
     }
-    if (pos < clip.duration_sec - 0.01) segs.push({start:pos, end:clip.duration_sec});
-    if (segs.length === 0) segs.push({start:0, end:clip.duration_sec});
-    for (const seg of segs) {
-      timeline.push({clip:clip.filename, localStart:seg.start, localEnd:seg.end,
-                     globalStart:totalDuration, globalEnd:totalDuration+(seg.end-seg.start)});
-      totalDuration += seg.end - seg.start;
+    if(pos<clip.duration_sec-0.01)segs.push({start:pos,end:clip.duration_sec});
+    if(segs.length===0)segs.push({start:0,end:clip.duration_sec});
+    for(const seg of segs){
+      timeline.push({clip:clip.filename,localStart:seg.start,localEnd:seg.end,
+                     globalStart:totalDuration,globalEnd:totalDuration+(seg.end-seg.start)});
+      totalDuration+=seg.end-seg.start;
     }
   }
+  updateRuler();
 }
 
-// ── Clip loading ───────────────────────────────────────────────────────────────
-function loadClip(idx, autoPlay=true) {
-  if (!state || idx >= state.clips.length) return;
-  const clip = state.clips[idx];
-  currentClipIdx = idx;
-  mainVideo.src = `/video/${encodeURIComponent(clip.filename)}`;
-  clipNameEl.textContent = clip.filename;
-  if (autoPlay && isPlaying) mainVideo.play().catch(()=>{});
+function updateRuler(){
+  const rum=document.getElementById('rum');
+  if(!rum||totalDuration<=0)return;
+  let html='';
+  for(let i=0;i<=4;i++){const t=(totalDuration/4)*i;html+=`<span>${fmt(t)}</span>`;}
+  rum.innerHTML=html;
+  document.getElementById('rt').textContent=fmt(totalDuration);
 }
 
-// ── Global position ────────────────────────────────────────────────────────────
-function getGlobalPos() {
-  if (!state || !state.clips[currentClipIdx]) return 0;
-  const name = state.clips[currentClipIdx].filename;
-  const t = mainVideo.currentTime;
-  for (const seg of timeline) {
-    if (seg.clip === name && t >= seg.localStart - 0.05 && t <= seg.localEnd + 0.05)
-      return seg.globalStart + Math.max(0, t - seg.localStart);
+function loadClip(idx,autoPlay=true){
+  if(!state||idx>=state.clips.length)return;
+  const clip=state.clips[idx];
+  currentClipIdx=idx;
+  cnEl.textContent=clip.filename;
+  mainVideo.style.display='block';
+  preloadVideo.style.display='none';
+  mainVideo.src=`/video/${encodeURIComponent(clip.filename)}`;
+  mainVideo.addEventListener('canplay',()=>{
+    const fkt=firstKeptTime(clip.filename);
+    if(fkt>0.01)mainVideo.currentTime=fkt;
+    if(autoPlay)mainVideo.play().catch(()=>{});
+  },{once:true});
+  preloadClip(idx+1);
+}
+
+function getGlobalPos(){
+  if(!state||!state.clips[currentClipIdx])return 0;
+  const name=state.clips[currentClipIdx].filename;
+  const t=mainVideo.currentTime;
+  for(const seg of timeline){
+    if(seg.clip===name&&t>=seg.localStart-0.05&&t<=seg.localEnd+0.05)
+      return seg.globalStart+Math.max(0,t-seg.localStart);
   }
   return 0;
 }
 
-// ── Seek to global position ────────────────────────────────────────────────────
-function seekToGlobal(target) {
-  const seg = timeline.find(s => target >= s.globalStart && target < s.globalEnd);
-  if (!seg) return;
-  const idx = state.clips.findIndex(c => c.filename === seg.clip);
-  const local = seg.localStart + (target - seg.globalStart);
-  if (idx !== currentClipIdx) {
-    currentClipIdx = idx;
-    clipNameEl.textContent = seg.clip;
-    mainVideo.src = `/video/${encodeURIComponent(seg.clip)}`;
-    mainVideo.addEventListener('loadedmetadata', () => {
-      mainVideo.currentTime = local;
-      if (isPlaying) mainVideo.play().catch(()=>{});
-    }, {once:true});
-  } else {
-    mainVideo.currentTime = local;
+function localToGlobal(clipName,localTime){
+  const segs=timeline.filter(s=>s.clip===clipName);
+  for(const seg of segs){
+    if(localTime>=seg.localStart-0.05&&localTime<=seg.localEnd+0.05)
+      return seg.globalStart+(localTime-seg.localStart);
   }
+  return segs.length?segs[0].globalStart:0;
 }
 
-// ── timeupdate ─────────────────────────────────────────────────────────────────
-mainVideo.addEventListener('timeupdate', () => {
-  if (!state || !state.clips[currentClipIdx]) return;
-  const name = state.clips[currentClipIdx].filename;
-  const t = mainVideo.currentTime;
-  // Skip over cuts
-  for (const cut of (state.cuts||[]).filter(c=>c.clip===name)) {
-    if (t >= cut.start && t < cut.end - 0.02) { mainVideo.currentTime = cut.end + 0.05; return; }
-  }
-  globalPosition = getGlobalPos();
-  updateCaption(); updateBroll(); updateProgress(); updatePlayhead();
-});
+function seekToGlobal(target){
+  const seg=timeline.find(s=>target>=s.globalStart&&target<s.globalEnd);
+  if(!seg)return;
+  const idx=state.clips.findIndex(c=>c.filename===seg.clip);
+  const local=seg.localStart+(target-seg.globalStart);
+  if(idx!==currentClipIdx){
+    currentClipIdx=idx;
+    cnEl.textContent=seg.clip;
+    mainVideo.src=`/video/${encodeURIComponent(seg.clip)}`;
+    mainVideo.addEventListener('loadedmetadata',()=>{
+      mainVideo.currentTime=local;
+      if(isPlaying)mainVideo.play().catch(()=>{});
+    },{once:true});
+  }else{mainVideo.currentTime=local;}
+}
 
-mainVideo.addEventListener('ended', () => {
-  if (state && currentClipIdx + 1 < state.clips.length) {
-    currentClipIdx++;
-    loadClip(currentClipIdx, true);
+function transitionToNext(){
+  if(!state||currentClipIdx+1>=state.clips.length){
+    isPlaying=false;pliEl.style.display='';paiEl.style.display='none';return;
+  }
+  const ni=currentClipIdx+1,nc=state.clips[ni];
+  if(preloadVideo.dataset.clip===nc.filename&&preloadVideo.readyState>=3){
+    currentClipIdx=ni;cnEl.textContent=nc.filename;
+    swapVideos();
     mainVideo.play().catch(()=>{});
-  } else { isPlaying=false; playBtn.textContent='▶'; }
-});
+    preloadClip(ni+1);
+  }else{loadClip(ni,true);}
+}
 
-// ── Play / Pause ───────────────────────────────────────────────────────────────
-playBtn.addEventListener('click', () => {
-  if (isPlaying) { mainVideo.pause(); } else { mainVideo.play().catch(()=>{}); }
+function onTimeUpdate(){
+  if(this!==mainVideo)return;
+  if(!state||!state.clips[currentClipIdx])return;
+  const clip=state.clips[currentClipIdx];
+  const t=mainVideo.currentTime;
+  for(const cut of(state.cuts||[]).filter(c=>c.clip===clip.filename)){
+    if(t>=cut.start&&t<cut.end-0.02){
+      // If this cut reaches the end of the clip, transition immediately
+      if(cut.end>=clip.duration_sec-0.15){transitionToNext();}
+      else{mainVideo.currentTime=cut.end+0.05;}
+      return;
+    }
+  }
+  globalPosition=getGlobalPos();
+  updateCap();updateBroll();updateProg();updatePH();
+}
+function onEnded(){
+  // Handles clips with no trailing silence cut — transitionToNext guards double-fire via this!==mainVideo
+  if(this!==mainVideo)return;
+  transitionToNext();
+}
+function onPlay(){if(this!==mainVideo)return;isPlaying=true;pliEl.style.display='none';paiEl.style.display='';}
+function onPause(){if(this!==mainVideo)return;isPlaying=false;pliEl.style.display='';paiEl.style.display='none';}
+[videoA,videoB].forEach(v=>{
+  v.addEventListener('timeupdate',onTimeUpdate);
+  v.addEventListener('ended',onEnded);
+  v.addEventListener('play',onPlay);
+  v.addEventListener('pause',onPause);
 });
-mainVideo.addEventListener('play',  () => { isPlaying=true;  playBtn.textContent='⏸'; });
-mainVideo.addEventListener('pause', () => { isPlaying=false; playBtn.textContent='▶'; });
+ppBtn.addEventListener('click',()=>{
+  if(isPlaying)mainVideo.pause();else mainVideo.play().catch(()=>{});
+});
+document.getElementById('vs').addEventListener('input',e=>{mainVideo.volume=parseFloat(e.target.value);});
 
-// ── B-roll overlay ─────────────────────────────────────────────────────────────
-function updateBroll() {
-  const broll = (state&&state.broll)||[];
-  const cur = broll.find(b => globalPosition>=b.at_sec && globalPosition<b.at_sec+b.duration);
-  if (cur && cur!==activeBroll) {
-    activeBroll = cur;
-    brollVideo.src = `/broll/${encodeURIComponent(cur.filename)}`;
-    brollVideo.muted = cur.muted !== false;
-    brollVideo.style.display = 'block';
-    brollVideo.currentTime = globalPosition - cur.at_sec;
+function updateBroll(){
+  const broll=(state&&state.broll)||[];
+  const cur=broll.find(b=>globalPosition>=b.at_sec&&globalPosition<b.at_sec+b.duration);
+  if(cur&&cur!==activeBroll){
+    activeBroll=cur;
+    brollVideo.src=`/broll/${encodeURIComponent(cur.filename)}`;
+    brollVideo.muted=cur.muted!==false;
+    brollVideo.style.display='block';
+    brollVideo.currentTime=globalPosition-cur.at_sec;
     brollVideo.play().catch(()=>{});
-  } else if (!cur && activeBroll) {
-    activeBroll = null;
-    brollVideo.pause(); brollVideo.style.display='none'; brollVideo.src='';
+  }else if(!cur&&activeBroll){
+    activeBroll=null;
+    brollVideo.pause();brollVideo.style.display='none';brollVideo.src='';
   }
 }
 
-// ── Captions ───────────────────────────────────────────────────────────────────
-function updateCaption() {
-  if (!state||!state.captions||!state.clips[currentClipIdx]) return;
-  const name = state.clips[currentClipIdx].filename;
-  const t = mainVideo.currentTime;
-  const e = (state.captions.entries||[]).find(e=>e.clip===name&&t>=e.start&&t<=e.end);
-  captionEl.textContent = e ? e.text : '';
-  captionEl.style.display = e ? 'block' : 'none';
+function updateCap(){
+  if(!state||!state.captions||!state.clips[currentClipIdx])return;
+  const name=state.clips[currentClipIdx].filename;
+  const t=mainVideo.currentTime;
+  const e=(state.captions.entries||[]).find(e=>e.clip===name&&t>=e.start&&t<=e.end);
+  capEl.textContent=e?e.text:'';
+  capEl.style.display=e?'block':'none';
 }
 
-// ── Progress bar ───────────────────────────────────────────────────────────────
-function updateProgress() {
-  const pct = totalDuration>0 ? (globalPosition/totalDuration)*100 : 0;
-  progEl.style.width = `${pct}%`;
-  tsEl.textContent = `${fmt(globalPosition)} / ${fmt(totalDuration)}`;
+function updateProg(){
+  const pct=totalDuration>0?(globalPosition/totalDuration)*100:0;
+  piEl.style.width=`${pct}%`;
+  tsEl.textContent=`${fmt(globalPosition)} / ${fmt(totalDuration)}`;
 }
-document.getElementById('prog-outer').addEventListener('click', e => {
-  const r = e.currentTarget.getBoundingClientRect();
+
+document.getElementById('po').addEventListener('click',e=>{
+  const r=e.currentTarget.getBoundingClientRect();
   seekToGlobal(((e.clientX-r.left)/r.width)*totalDuration);
 });
 
-// ── Playhead ───────────────────────────────────────────────────────────────────
-function updatePlayhead() {
-  const v1r = v1El.getBoundingClientRect();
-  const ttr = document.getElementById('timeline-tracks').getBoundingClientRect();
-  const pct = totalDuration>0 ? (globalPosition/totalDuration)*100 : 0;
-  playhead.style.left = `${(v1r.left-ttr.left)+(pct/100)*v1r.width}px`;
+function updatePH(){
+  if(!totalDuration)return;
+  const pct=(globalPosition/totalDuration)*100;
+  ph.style.left=`${pct}%`;
+  if(isPlaying){
+    const phX=(pct/100)*tlc.offsetWidth;
+    const sl=tlScroll.scrollLeft,sw=tlScroll.offsetWidth;
+    if(phX<sl+30||phX>sl+sw-30)tlScroll.scrollLeft=Math.max(0,phX-sw/2);
+  }
 }
 
-// ── Timeline UI ────────────────────────────────────────────────────────────────
-function renderTimelineUI() {
-  if (!state || totalDuration===0) return;
-  [v1El,v2El,a1El].forEach(el=>el.innerHTML='');
+let dragState=null;
 
-  for (let i=0; i<state.clips.length; i++) {
-    const clip = state.clips[i];
-    const segs = timeline.filter(s=>s.clip===clip.filename);
-    if (!segs.length) continue;
-    const gStart=segs[0].globalStart, gEnd=segs[segs.length-1].globalEnd;
-    const left=`${(gStart/totalDuration)*100}%`, width=`${((gEnd-gStart)/totalDuration)*100}%`;
+async function saveState(){
+  state.last_modified=Date.now()/1000;
+  lastModified=state.last_modified;
+  try{
+    await fetch('/update-state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)});
+  }catch(_){}
+}
+
+document.addEventListener('mousemove',e=>{
+  if(!dragState||!totalDuration)return;
+  const dx=e.clientX-dragState.startX;
+  const dSec=dx/tlc.offsetWidth*totalDuration;
+  const {block,gStart,gEnd}=dragState;
+  block.style.opacity='0.6';
+  if(dragState.mode==='resize-l'){
+    const ng=Math.min(gEnd-0.05,Math.max(0,gStart+dSec));
+    block.style.left=(ng/totalDuration*100)+'%';
+    block.style.width=((gEnd-ng)/totalDuration*100)+'%';
+  }else if(dragState.mode==='resize-r'){
+    const ng=Math.max(gStart+0.05,gEnd+dSec);
+    block.style.width=((ng-gStart)/totalDuration*100)+'%';
+  }
+});
+
+document.addEventListener('mouseup',e=>{
+  if(!dragState||!totalDuration)return;
+  const dx=e.clientX-dragState.startX;
+  const dSec=dx/tlc.offsetWidth*totalDuration;
+  const {entry,mode,gStart,gEnd}=dragState;
+  if(Math.abs(dx)>=2){
+    // dSec = delta in global seconds = delta in local seconds (1:1 within a segment)
+    if(mode==='resize-l'){
+      entry.start=Math.max(0,Math.min(entry.end-0.1,entry.start+dSec));
+    }else if(mode==='resize-r'){
+      entry.end=Math.max(entry.start+0.1,entry.end+dSec);
+    }
+    // Ripple adjacent captions in same clip to prevent overlaps
+    const cc=(state.captions?.entries||[]).filter(e=>e.clip===entry.clip).sort((a,b)=>a.start-b.start);
+    const ei=cc.findIndex(e=>e===entry);
+    if(mode==='resize-r'&&ei>=0){
+      for(let i=ei+1;i<cc.length;i++){
+        if(cc[i].start<cc[i-1].end){
+          const dur=cc[i].end-cc[i].start;
+          cc[i].start=cc[i-1].end;
+          cc[i].end=cc[i].start+dur;
+        }else break;
+      }
+    }else if(mode==='resize-l'&&ei>=0){
+      for(let i=ei-1;i>=0;i--){
+        if(cc[i].end>cc[i+1].start){
+          const dur=cc[i].end-cc[i].start;
+          cc[i].end=cc[i+1].start;
+          cc[i].start=Math.max(0,cc[i].end-dur);
+        }else break;
+      }
+    }
+    saveState();
+    renderTimelineUI();
+  }
+  dragState=null;
+});
+
+function renderTimelineUI(){
+  if(!state||totalDuration===0)return;
+  [v1El,v2El,a1El,capContent].forEach(el=>el.innerHTML='');
+  for(let i=0;i<state.clips.length;i++){
+    const clip=state.clips[i];
+    const segs=timeline.filter(s=>s.clip===clip.filename);
+    if(!segs.length)continue;
+    const gStart=segs[0].globalStart,gEnd=segs[segs.length-1].globalEnd;
+    const left=`${(gStart/totalDuration)*100}%`,width=`${((gEnd-gStart)/totalDuration)*100}%`;
     const color=COLORS[i%COLORS.length];
-
-    [v1El,a1El].forEach(trackEl => {
+    [v1El,a1El].forEach(trackEl=>{
       const block=document.createElement('div');
-      block.className='clip-block';
+      block.className='cb2';
       block.style.cssText=`left:${left};width:${width};background:${color};`;
       block.title=`${clip.filename} (${fmt(gEnd-gStart)})`;
-      // Cut overlays (approximate visual position within original clip duration)
-      for (const cut of (state.cuts||[]).filter(c=>c.clip===clip.filename)) {
-        if (clip.duration_sec > 0) {
-          const cLeft=`${(cut.start/clip.duration_sec)*100}%`;
-          const cWidth=`${((cut.end-cut.start)/clip.duration_sec)*100}%`;
-          const ov=document.createElement('div');
-          ov.className='cut-overlay'; ov.style.cssText=`left:${cLeft};width:${cWidth};`;
+      const lbl=document.createElement('span');lbl.className='cbl';lbl.textContent=clip.filename;
+      block.appendChild(lbl);
+      for(const cut of(state.cuts||[]).filter(c=>c.clip===clip.filename)){
+        if(clip.duration_sec>0){
+          const ov=document.createElement('div');ov.className='co';
+          ov.style.cssText=`left:${(cut.start/clip.duration_sec)*100}%;width:${((cut.end-cut.start)/clip.duration_sec)*100}%;`;
           block.appendChild(ov);
         }
       }
-      block.addEventListener('click', e => {
+      block.addEventListener('click',e=>{
         const r=block.getBoundingClientRect();
-        const localFrac=(e.clientX-r.left)/r.width;
-        seekToGlobal(gStart+(gEnd-gStart)*localFrac);
+        seekToGlobal(gStart+(gEnd-gStart)*((e.clientX-r.left)/r.width));
         e.stopPropagation();
       });
       trackEl.appendChild(block);
     });
   }
-
-  for (const br of (state.broll||[])) {
+  for(const br of(state.broll||[])){
     const block=document.createElement('div');
-    block.className='clip-block broll-block';
+    block.className='cb2 brl';
     block.style.cssText=`left:${(br.at_sec/totalDuration)*100}%;width:${(br.duration/totalDuration)*100}%;`;
     block.title=`${br.filename} (${br.duration}s)${br.muted!==false?' [muted]':''}`;
+    const lbl=document.createElement('span');lbl.className='cbl';lbl.textContent=br.filename;
+    block.appendChild(lbl);
     v2El.appendChild(block);
+  }
+  // Render caption track
+  for(const entry of(state.captions?.entries||[])){
+    const gStart=localToGlobal(entry.clip,entry.start);
+    const gEnd=localToGlobal(entry.clip,entry.end);
+    const left=(gStart/totalDuration)*100;
+    const width=Math.max(0.3,(gEnd-gStart)/totalDuration*100);
+    const block=document.createElement('div');
+    block.className='cap-block';
+    block.style.left=`${left}%`;block.style.width=`${width}%`;
+    block.title=entry.text;
+    const rl=document.createElement('div');rl.className='cap-resize-l';
+    const txt=document.createElement('span');txt.className='cap-block-text';txt.textContent=entry.text;
+    const rr=document.createElement('div');rr.className='cap-resize-r';
+    block.appendChild(rl);block.appendChild(txt);block.appendChild(rr);
+    const startDrag=(e,mode)=>{
+      e.stopPropagation();e.preventDefault();
+      dragState={mode,entry,block,startX:e.clientX,gStart,gEnd};
+    };
+    rl.addEventListener('mousedown',e=>startDrag(e,'resize-l'));
+    rr.addEventListener('mousedown',e=>startDrag(e,'resize-r'));
+    block.addEventListener('click',e=>{if(e.target!==rl&&e.target!==rr){seekToGlobal(gStart);e.stopPropagation();}});
+    capContent.appendChild(block);
   }
 }
 
-// ── Transcript ─────────────────────────────────────────────────────────────────
-function buildClipHTML(clip, cuts) {
-  const clipCuts = (cuts || []).filter(c => c.clip === clip.filename);
-  const words = clip.words || [];
-  if (!words.length) return `<span class="word-kept">${clip.transcript_marked || ''}</span>`;
-
-  const parts = [];
-
-  // Leading silence before first word
-  const leadCut = clipCuts.find(c => c.type === 'silence' && c.end <= words[0].start + 0.2);
-  if (leadCut) {
-    const dur = (leadCut.end - leadCut.start).toFixed(1);
-    parts.push(`<span class="silence-marker" title="silence removed">[${dur}s]</span>`);
-  }
-
-  for (let i = 0; i < words.length; i++) {
-    const w = words[i];
-    const wCut = clipCuts.find(c => c.start <= w.start + 0.05 && w.end <= c.end + 0.05);
-    if (wCut) {
-      const cls = wCut.type === 'filler' ? 'cut-filler'
-                : wCut.type === 'false-start' ? 'cut-false-start'
-                : 'cut-silence';
-      parts.push(`<span class="${cls}" title="${wCut.type} cut">${w.word}</span>`);
-    } else {
-      parts.push(`<span class="word-kept">${w.word}</span>`);
-    }
-
-    // Silence gap before next word
-    if (i < words.length - 1) {
-      const next = words[i + 1];
-      const gapCut = clipCuts.find(c =>
-        c.type === 'silence' && c.start <= w.end + 0.2 && c.end >= next.start - 0.2
-      );
-      if (gapCut) {
-        const dur = (gapCut.end - gapCut.start).toFixed(1);
-        parts.push(`<span class="silence-marker" title="silence removed">[${dur}s]</span>`);
-      }
+function buildClipHTML(clip,cuts){
+  const clipCuts=(cuts||[]).filter(c=>c.clip===clip.filename);
+  const words=clip.words||[];
+  if(!words.length)return`<span class="wk">${clip.transcript_marked||''}</span>`;
+  const parts=[];
+  const leadCut=clipCuts.find(c=>c.type==='silence'&&c.end<=words[0].start+0.2);
+  if(leadCut)parts.push(`<span class="sm">[${(leadCut.end-leadCut.start).toFixed(1)}s]</span>`);
+  for(let i=0;i<words.length;i++){
+    const w=words[i];
+    const wCut=clipCuts.find(c=>c.start<=w.start+0.05&&w.end<=c.end+0.05);
+    if(wCut){
+      const cls=wCut.type==='filler'?'cf':wCut.type==='false-start'?'cfs':'cs';
+      parts.push(`<span class="${cls}">${w.word}</span>`);
+    }else{parts.push(`<span class="wk">${w.word}</span>`);}
+    if(i<words.length-1){
+      const next=words[i+1];
+      const gc=clipCuts.find(c=>c.type==='silence'&&c.start<=w.end+0.2&&c.end>=next.start-0.2);
+      if(gc)parts.push(`<span class="sm">[${(gc.end-gc.start).toFixed(1)}s]</span>`);
     }
   }
-
-  // Trailing silence after last word
-  const last = words[words.length - 1];
-  const trailCut = clipCuts.find(c => c.type === 'silence' && c.start >= last.end - 0.2);
-  if (trailCut) {
-    const dur = (trailCut.end - trailCut.start).toFixed(1);
-    parts.push(`<span class="silence-marker" title="silence removed">[${dur}s]</span>`);
-  }
-
+  const last=words[words.length-1];
+  const tc=clipCuts.find(c=>c.type==='silence'&&c.start>=last.end-0.2);
+  if(tc)parts.push(`<span class="sm">[${(tc.end-tc.start).toFixed(1)}s]</span>`);
   return parts.join(' ');
 }
 
-function renderTranscript() {
-  if (!state) return;
-  const totalOrig = state.clips.reduce((s,c)=>s+c.duration_sec,0);
-  const cutTime   = (state.cuts||[]).reduce((s,c)=>s+(c.end-c.start),0);
-  document.getElementById('stats-bar').textContent =
-    `${(state.cuts||[]).length} cuts · saves ${fmt(cutTime)} · output ${fmt(totalOrig-cutTime)}`;
-
-  const content = document.getElementById('transcript-content');
-  content.innerHTML = '';
-
-  // Compute per-clip global offsets for b-roll marker placement
-  const clipOffsets = {};
-  let off = 0;
-  for (const clip of state.clips) {
-    clipOffsets[clip.filename] = off;
-    const clipCutTime=(state.cuts||[]).filter(c=>c.clip===clip.filename).reduce((s,c)=>s+(c.end-c.start),0);
-    off += clip.duration_sec - clipCutTime;
+function renderTranscript(){
+  if(!state)return;
+  const cuts=state.cuts||[];
+  const silences=cuts.filter(c=>c.type==='silence').length;
+  const words=cuts.filter(c=>c.type==='filler'||c.type==='false_start').length;
+  document.getElementById('stats-bar').textContent=
+    `${cuts.length} cuts · ${silences} silence${silences!==1?'s':''} · ${words} word${words!==1?'s':''} removed`;
+  const content=document.getElementById('tc');
+  content.innerHTML='';
+  const clipOffsets={};let off=0;
+  for(const clip of state.clips){
+    clipOffsets[clip.filename]=off;
+    const ct=(state.cuts||[]).filter(c=>c.clip===clip.filename).reduce((s,c)=>s+(c.end-c.start),0);
+    off+=clip.duration_sec-ct;
   }
-
-  for (const clip of state.clips) {
-    const hdr=document.createElement('div'); hdr.className='clip-header';
-    hdr.textContent=clip.filename; content.appendChild(hdr);
-
-    const div=document.createElement('div'); div.className='transcript-words';
-    div.innerHTML = buildClipHTML(clip, state.cuts);
-    content.appendChild(div);
-
-    const clipGlobalStart = clipOffsets[clip.filename]||0;
-    const clipCutDur=(state.cuts||[]).filter(c=>c.clip===clip.filename).reduce((s,c)=>s+(c.end-c.start),0);
-    const clipGlobalEnd=clipGlobalStart+(clip.duration_sec-clipCutDur);
-
-    for (const br of (state.broll||[])) {
-      if (br.at_sec>=clipGlobalStart && br.at_sec<clipGlobalEnd) {
-        const mk=document.createElement('span'); mk.className='broll-marker';
+  for(const clip of state.clips){
+    const hdr=document.createElement('div');hdr.className='ch';hdr.textContent=clip.filename;content.appendChild(hdr);
+    const div=document.createElement('div');div.className='tw';div.innerHTML=buildClipHTML(clip,state.cuts);content.appendChild(div);
+    const cgs=clipOffsets[clip.filename]||0;
+    const ccd=(state.cuts||[]).filter(c=>c.clip===clip.filename).reduce((s,c)=>s+(c.end-c.start),0);
+    const cge=cgs+(clip.duration_sec-ccd);
+    for(const br of(state.broll||[])){
+      if(br.at_sec>=cgs&&br.at_sec<cge){
+        const mk=document.createElement('span');mk.className='bm';
         mk.textContent=`▶ ${br.filename} (${br.duration}s at ${fmt(br.at_sec)})`;
         content.appendChild(mk);
       }
     }
+
+    // Caption chips
+    const clipCaps=(state.captions?.entries||[]).filter(e=>e.clip===clip.filename);
+    if(clipCaps.length){
+      const sec=document.createElement('div');sec.className='cap-section';
+      const lbl=document.createElement('div');lbl.className='cap-section-label';
+      lbl.textContent='captions';sec.appendChild(lbl);
+      const list=document.createElement('div');list.className='cap-list';
+      for(const cap of clipCaps){
+        const chip=document.createElement('div');chip.className='cap-chip';
+        chip.textContent=cap.text;
+        chip.title=`${fmt(cap.start)} – ${fmt(cap.end)}`;
+        chip.addEventListener('click',()=>{
+          // seek to clip-local time by finding clip in timeline
+          const clipSegs=timeline.filter(s=>s.clip===clip.filename);
+          if(!clipSegs.length)return;
+          const gStart=clipSegs[0].globalStart;
+          seekToGlobal(gStart+(cap.start-clipSegs[0].localStart));
+        });
+        list.appendChild(chip);
+      }
+      sec.appendChild(list);content.appendChild(sec);
+    }
   }
 }
 
-// ── Boot ───────────────────────────────────────────────────────────────────────
 fetchState();
-setInterval(fetchState, 2000);
+setInterval(fetchState,2000);
 </script>
 </body>
 </html>

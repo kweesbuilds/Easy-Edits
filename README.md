@@ -13,7 +13,9 @@ Built as a Claude Code skill. Runs 100% locally. No API costs, no cloud uploads,
 - Scans a folder of raw clips and detects recording order from file timestamps
 - Lets you reorder clips in plain English before anything is processed
 - Transcribes every clip locally using Whisper (faster-whisper)
-- Shows you the full transcript with every proposed cut marked — silences, filler words, false starts
+- Detects and removes **bad takes** — phrases repeated after a stumble; the failed attempt (including any "let me try that again" filler) is auto-cut, the retry is kept
+- Detects **duplicate clips** — if multiple clips open with the same content (you re-recorded from the top), earlier takes are flagged and cut entirely; only the last version is kept
+- Shows you the full transcript with every proposed cut marked — silences, filler words, false starts, bad takes, and duplicate clips
 - **Live browser preview** at localhost:5000: transcript left, stitched video player right, NLE-style timeline below
 - Lets you adjust cuts, b-roll overlays, and caption word count in plain English
 - Outputs a single `edit.xml` covering all clips sequenced on one timeline — compatible with DaVinci Resolve, Premiere Pro, and Final Cut Pro
@@ -151,6 +153,9 @@ that false start in clip 1 — keep it
 lower the silence threshold, too many cuts
 remove you know everywhere except clip 3
 swap clip 1 and clip 2
+keep the bad take in clip 2 at 0:34
+clip 3 isn't a duplicate, keep it
+that bad take in clip 1 starts too early
 ```
 
 ---
@@ -159,7 +164,7 @@ swap clip 1 and clip 2
 
 After transcription, EasyEdits opens a local preview at `localhost:5000`:
 
-- **Left panel** — transcript with cuts highlighted (silences greyed, fillers struck through)
+- **Left panel** — transcript with cuts highlighted (silences greyed, fillers struck through, bad takes shown in orange italic with a preview of the repeated phrase, duplicate clips shown with an ⚠ banner)
 - **Right panel** — video player that skips cuts in real time, with b-roll overlay and captions
 - **Timeline** — CAP/V2/V1/A1 tracks with zoom, playhead, click to seek; caption blocks resizable from edges
 

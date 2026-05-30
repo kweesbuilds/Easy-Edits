@@ -62,9 +62,18 @@ Automates the first-pass edit of talking head / vlog video content:
 2. Detects clip order from embedded timestamps
 3. Transcribes all clips locally with Whisper
 4. Identifies silences, filler words, false starts
-5. Shows the user a full transcript preview with proposed cuts marked
-6. Accepts plain English adjustments from the user
-7. On final approval, outputs edit.xml + captions.srt to an easyedits_output/ subfolder
+5. Detects bad takes — phrases repeated after a stumble (fuzzy match, 72% word overlap threshold); cuts the earlier attempt, keeps the retry
+6. Detects duplicate clips — clips whose opening content closely matches a later clip; the earlier clip is cut entirely and shown with a ⚠ banner in the preview
+7. Shows the user a full transcript preview with proposed cuts marked
+8. Accepts plain English adjustments from the user
+9. On final approval, outputs edit.xml + captions.srt to an easyedits_output/ subfolder
+
+## Bad take / duplicate take cut types
+
+- `bad_take` — within a single clip; `start` = first word of the failed attempt, `end` = first word of the retry. Everything in between (including "let me try that again" filler) is removed.
+- `duplicate_take` — whole-clip cut; `start` = 0.0, `end` = clip duration_sec. The entire clip is removed from the timeline. Shown with a ⚠ banner and orange italic text in the preview left panel.
+
+Both types appear in `preview_state.json → cuts[]` tagged with `"clip"` and `"type"`. The user can override them in plain English (e.g., "clip 3 isn't a duplicate, keep it") — remove the relevant cut from the cuts array and bump `last_modified`.
 
 ## What this skill does NOT do
 

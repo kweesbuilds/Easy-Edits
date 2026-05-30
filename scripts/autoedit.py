@@ -22,6 +22,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -42,6 +43,19 @@ SILENCE_THRESHOLD_DB = -35   # audio level below which we call it silence
 SILENCE_MIN_DURATION = 0.6   # seconds — shorter silences are kept
 PADDING_BEFORE = 0.05        # seconds to keep before a cut resumes
 PADDING_AFTER  = 0.05        # seconds to keep after speech ends
+
+# Bad take / duplicate take detection
+WORD_NORMALIZATIONS = {
+    "gonna": "going", "wanna": "want", "gotta": "got",
+    "kinda": "kind",  "sorta": "sort", "outta": "out",
+    "tryna": "trying", "hafta": "have", "oughta": "ought",
+    "lemme": "let",   "gimme": "give", "dunno": "know",
+}
+REPEAT_CHECK_WINDOW  = 8    # words compared per phrase window
+REPEAT_SIMILARITY    = 0.72 # fraction of words that must match to flag a repeat
+REPEAT_MAX_LOOKAHEAD = 100  # max words ahead to search for a matching phrase
+DUPE_CLIP_MIN_WORDS  = 20   # words from clip opening used for cross-clip comparison
+DUPE_CLIP_SIMILARITY = 0.72 # similarity threshold for duplicate-clip detection
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -266,11 +280,98 @@ def generate_caption_entries(words: list[dict], cuts: list[dict], words_per_line
     return entries
 
 
+def normalize_word(w: str) -> str:
+    """Lowercase, strip punctuation, expand common slang contractions."""
+    w = re.sub(r"[.,!?;:\"'—\-]+", "", w.lower().strip())
+    return WORD_NORMALIZATIONS.get(w, w)
+
+
+def phrase_similarity(a: list[str], b: list[str]) -> float:
+    """Fraction of the shorter phrase's tokens that appear in the other phrase."""
+    if not a or not b:
+        return 0.0
+    ca, cb = Counter(a), Counter(b)
+    matches = sum(min(ca[tok], cb[tok]) for tok in ca)
+    return matches / min(len(a), len(b))
+
+
+def detect_repeated_phrases(words: list[dict]) -> list[dict]:
+    """
+    Find phrases the speaker said twice — the first occurrence is the bad take.
+    The resulting cut spans from words[i].start to words[j].start, removing
+    everything (including 'let me try that again' filler) up to the retry.
+    """
+    n = len(words)
+    if n < REPEAT_CHECK_WINDOW * 2:
+        return []
+
+    norm = [normalize_word(w["word"]) for w in words]
+    bad_takes = []
+    i = 0
+
+    while i < n - REPEAT_CHECK_WINDOW:
+        phrase_i = norm[i:i + REPEAT_CHECK_WINDOW]
+        best_j, best_sim = None, 0.0
+
+        limit = min(n - REPEAT_CHECK_WINDOW + 1, i + REPEAT_MAX_LOOKAHEAD)
+        for j in range(i + REPEAT_CHECK_WINDOW, limit):
+            sim = phrase_similarity(phrase_i, norm[j:j + REPEAT_CHECK_WINDOW])
+            if sim >= REPEAT_SIMILARITY and sim > best_sim:
+                best_j, best_sim = j, sim
+
+        if best_j is not None:
+            preview_words = min(8, REPEAT_CHECK_WINDOW)
+            bad_takes.append({
+                "type": "bad_take",
+                "start": round(words[i]["start"], 3),
+                "end": round(words[best_j]["start"], 3),
+                "duration": round(words[best_j]["start"] - words[i]["start"], 2),
+                "text": " ".join(w["word"] for w in words[i:i + preview_words]),
+                "similarity": round(best_sim, 2),
+            })
+            i = best_j  # resume from the kept take
+        else:
+            i += 1
+
+    return bad_takes
+
+
+def detect_duplicate_clips(clip_results: list[dict]) -> set:
+    """
+    Compare each clip's opening words against all later clips.
+    Returns names of clips that are earlier duplicate takes (keep the last one).
+    """
+    duplicates = set()
+
+    for i in range(len(clip_results) - 1):
+        if clip_results[i]["clip"] in duplicates:
+            continue
+
+        words_i = clip_results[i].get("words", [])[:DUPE_CLIP_MIN_WORDS]
+        if len(words_i) < DUPE_CLIP_MIN_WORDS // 2:
+            continue
+
+        norm_i = [normalize_word(w["word"]) for w in words_i]
+
+        for j in range(i + 1, len(clip_results)):
+            words_j = clip_results[j].get("words", [])[:DUPE_CLIP_MIN_WORDS]
+            if len(words_j) < DUPE_CLIP_MIN_WORDS // 2:
+                continue
+
+            norm_j = [normalize_word(w["word"]) for w in words_j]
+            if phrase_similarity(norm_i, norm_j) >= DUPE_CLIP_SIMILARITY:
+                duplicates.add(clip_results[i]["clip"])
+                break
+
+    return duplicates
+
+
 def build_marked_transcript(
     words: list[dict],
     silences: list[dict],
     fillers: list[dict],
     false_starts: list[dict],
+    bad_takes: list[dict] = None,
     overrides: dict = None
 ) -> tuple[str, list[dict]]:
     """
@@ -287,8 +388,10 @@ def build_marked_transcript(
     """
     if overrides is None:
         overrides = {}
+    if bad_takes is None:
+        bad_takes = []
 
-    all_cuts = silences + fillers + false_starts
+    all_cuts = silences + fillers + false_starts + bad_takes
     all_cuts.sort(key=lambda x: x["start"])
 
     # Apply overrides
@@ -340,6 +443,10 @@ def build_marked_transcript(
     while word_idx < len(words):
         word = words[word_idx]
 
+        # Discard cuts whose end is already behind the current word
+        while cut_idx < len(filtered_cuts) and filtered_cuts[cut_idx]["end"] + 0.05 < word["start"]:
+            cut_idx += 1
+
         # Check if this word falls inside a cut
         in_cut = False
         if cut_idx < len(filtered_cuts):
@@ -352,6 +459,11 @@ def build_marked_transcript(
                     current_line.append(f"[{word['word']}]")
                 elif cut["type"] == "false_start":
                     current_line.append(f"[false start]")
+                elif cut["type"] == "bad_take":
+                    preview = cut.get("text", "")[:40]
+                    current_line.append(f'[bad take: "{preview}"]')
+                elif cut["type"] == "duplicate_take":
+                    current_line.append("[duplicate take — full clip cut]")
 
                 # Advance past this cut
                 while word_idx < len(words) and words[word_idx]["end"] <= cut["end"] + 0.05:
@@ -436,9 +548,11 @@ def mode_transcribe(folder: Path, order: list[str], overrides: dict = None,
             silences     = detect_silences(wav_path, meta.get("duration_sec", 0))
             fillers      = detect_fillers(words, FILLER_WORDS)
             false_starts = detect_false_starts(words)
+            bad_takes    = detect_repeated_phrases(words)
 
             transcript_str, cuts = build_marked_transcript(
                 words, silences, fillers, false_starts,
+                bad_takes=bad_takes,
                 overrides=overrides or {}
             )
 
@@ -459,6 +573,24 @@ def mode_transcribe(folder: Path, order: list[str], overrides: dict = None,
                 "cuts_count": len(cuts),
                 "time_saved_sec": round(cut_time, 1)
             })
+
+    # Cross-clip duplicate take detection (runs after all clips are transcribed)
+    duplicate_clip_names = detect_duplicate_clips(results)
+    for r in results:
+        if r["clip"] in duplicate_clip_names:
+            dur = r.get("duration_sec", 0)
+            dupe_cut = {
+                "type": "duplicate_take",
+                "start": 0.0,
+                "end": dur,
+                "duration": round(dur, 2),
+                "text": "Duplicate take — full clip cut",
+            }
+            r["cuts"].insert(0, dupe_cut)
+            r["cuts_count"] = len(r["cuts"])
+            cut_time = sum(c["end"] - c["start"] for c in r["cuts"])
+            r["time_saved_sec"] = round(cut_time, 1)
+            total_cut += dur  # count the whole clip as cut time
 
     output_sec  = total_original - total_cut
     result = {

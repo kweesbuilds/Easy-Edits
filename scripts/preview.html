@@ -68,6 +68,8 @@ body{background:var(--bg);color:var(--t2);font-family:var(--font);font-size:13px
 .cs{color:rgba(255,255,255,0.18)}
 .cf{text-decoration:line-through;text-decoration-color:var(--t5);color:rgba(255,255,255,0.22)}
 .cfs{color:rgba(255,255,255,0.18)}
+.cbt{text-decoration:line-through;text-decoration-color:rgba(255,130,50,0.45);color:rgba(255,140,60,0.5);font-style:italic}
+.dupe-banner{font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,140,60,0.7);margin:2px 0 5px;padding:3px 6px;border-left:2px solid rgba(255,140,60,0.4)}
 .sm{
   display:inline-block;color:rgba(255,255,255,0.2);
   font-family:var(--font);font-size:10px;font-weight:500;
@@ -737,7 +739,7 @@ function buildClipHTML(clip,cuts){
     const w=words[i];
     const wCut=clipCuts.find(c=>c.start<=w.start+0.05&&w.end<=c.end+0.05);
     if(wCut){
-      const cls=wCut.type==='filler'?'cf':wCut.type==='false-start'?'cfs':'cs';
+      const cls=wCut.type==='filler'?'cf':wCut.type==='false_start'?'cfs':(wCut.type==='bad_take'||wCut.type==='duplicate_take')?'cbt':'cs';
       parts.push(`<span class="${cls}">${w.word}</span>`);
     }else{parts.push(`<span class="wk">${w.word}</span>`);}
     if(i<words.length-1){
@@ -757,8 +759,12 @@ function renderTranscript(){
   const cuts=state.cuts||[];
   const silences=cuts.filter(c=>c.type==='silence').length;
   const words=cuts.filter(c=>c.type==='filler'||c.type==='false_start').length;
-  document.getElementById('stats-bar').textContent=
-    `${cuts.length} cuts · ${silences} silence${silences!==1?'s':''} · ${words} word${words!==1?'s':''} removed`;
+  const badTakes=cuts.filter(c=>c.type==='bad_take').length;
+  const dupeTakes=cuts.filter(c=>c.type==='duplicate_take').length;
+  let statsStr=`${cuts.length} cuts · ${silences} silence${silences!==1?'s':''} · ${words} word${words!==1?'s':''} removed`;
+  if(badTakes>0)statsStr+=` · ${badTakes} bad take${badTakes!==1?'s':''}`;
+  if(dupeTakes>0)statsStr+=` · ${dupeTakes} duplicate clip${dupeTakes!==1?'s':''}`;
+  document.getElementById('stats-bar').textContent=statsStr;
   const content=document.getElementById('tc');
   content.innerHTML='';
   const clipOffsets={};let off=0;
@@ -769,6 +775,8 @@ function renderTranscript(){
   }
   for(const clip of state.clips){
     const hdr=document.createElement('div');hdr.className='ch';hdr.textContent=clip.filename;content.appendChild(hdr);
+    const isDupe=(state.cuts||[]).some(c=>c.clip===clip.filename&&c.type==='duplicate_take');
+    if(isDupe){const b=document.createElement('div');b.className='dupe-banner';b.textContent='⚠ duplicate take — full clip cut';content.appendChild(b);}
     const div=document.createElement('div');div.className='tw';div.innerHTML=buildClipHTML(clip,state.cuts);content.appendChild(div);
     const cgs=clipOffsets[clip.filename]||0;
     const ccd=(state.cuts||[]).filter(c=>c.clip===clip.filename).reduce((s,c)=>s+(c.end-c.start),0);

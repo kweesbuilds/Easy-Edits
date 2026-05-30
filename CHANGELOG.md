@@ -6,6 +6,21 @@ Format: [Semantic Versioning](https://semver.org) — `MAJOR.MINOR.PATCH`
 
 ---
 
+## [1.5.0] — 2026-05-30
+
+### Added
+- **Bad take detection** — `detect_repeated_phrases()` in `autoedit.py` finds phrases said twice after a stumble using an 8-word sliding window with 72% fuzzy word-overlap threshold. The first occurrence (including any "let me try again" filler between attempts) is auto-cut as a `bad_take` type; the retry is kept. Contractions and slang are normalised before comparison (`gonna→going`, `wanna→want`, etc.).
+- **Duplicate clip detection** — `detect_duplicate_clips()` compares the opening 20 words of each clip against all later clips. Clips whose opening matches a later clip (72% similarity) are flagged as `duplicate_take` and cut entirely (0.0 → duration_sec).
+- **Preview: bad take styling** — bad-take words shown italic orange-struck (`.cbt` CSS class) in the transcript left panel.
+- **Preview: duplicate clip banner** — clips flagged as duplicates show an `⚠ duplicate take — full clip cut` banner in orange above the transcript.
+- **Preview: stats bar** — now shows `· N bad takes` and `· N duplicate clips` counts alongside existing silence/filler counts.
+- **SKILL.md: adjustment language** — added plain-English override examples for bad takes and duplicate clips (e.g., `"clip 3 isn't a duplicate, keep it"`).
+
+### Fixed
+- **Stale cut bug** — `build_marked_transcript()` now discards cuts whose end precedes the current word before checking, preventing cut_idx from getting stuck when a large cut (bad_take) subsumes smaller inner cuts (silences, fillers).
+
+---
+
 ## [1.4.1] — 2026-05-25
 
 ### Bug fixes

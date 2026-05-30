@@ -7,3 +7,5 @@ easyedits_output/
 *.log
 .DS_Store
 Thumbs.db
+.claude/
+*.pid

@@ -72,6 +72,10 @@ python "$USERPROFILE/.claude/skills/easyedits/scripts/autoedit.py" \
 
 Display the clip order AND full transcript as before.
 
+The transcript will automatically flag:
+- **Bad takes** — phrases the user repeated after stumbling (earlier attempt cut, retry kept). Shown as `[bad take: "first few words..."]` in the transcript.
+- **Duplicate clips** — clips whose opening content closely matches a later clip (the earlier clip is cut entirely). Shown with a `⚠ duplicate take` banner in the left panel.
+
 ---
 
 ## Step 2.5 — Launch the preview server
@@ -110,6 +114,11 @@ and tell the user the change is reflected in the browser.
 - `"don't cut any silences in clip 2"` — update cuts
 - `"cut the word honestly everywhere"` — update cuts
 - `"lower the silence threshold, too many cuts"` — re-run transcribe with adjusted threshold
+
+**Bad take adjustments:**
+- `"keep the bad take in clip 2 at 0:34"` — remove that bad_take cut from `preview_state.json`
+- `"clip 3 isn't a duplicate, keep it"` — remove the duplicate_take cut from clip 3
+- `"that bad take in clip 1 starts too early"` — adjust the start time of the bad_take cut
 
 **B-roll adjustments:**
 - `"put broll_cafe.mp4 at 0:32 for 5 seconds"` → add entry: `{"filename":"broll_cafe.mp4","path":"<BROLL_FOLDER>/broll_cafe.mp4","at_sec":32,"duration":5,"muted":true}`

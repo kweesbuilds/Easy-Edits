@@ -6,6 +6,13 @@ Format: [Semantic Versioning](https://semver.org) — `MAJOR.MINOR.PATCH`
 
 ---
 
+## [1.5.1] — 2026-05-30
+
+### Added
+- **Recursive folder scan** — `mode_scan` and `mode_transcribe` now use `rglob` instead of `iterdir`, so clips inside subfolders at any depth are found automatically. Clip ordering is still by embedded creation timestamp (file-mtime fallback). A filename→path lookup dict in `mode_transcribe` maps bare filenames from `--order` to their correct full paths.
+
+---
+
 ## [1.5.0] — 2026-05-30
 
 ### Added

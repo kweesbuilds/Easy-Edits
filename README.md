@@ -92,7 +92,7 @@ Type `/easyedits` to invoke the skill.
 
 **1. Prepare your clips**
 
-Put your raw video files in one folder. Any format works: `.mp4`, `.mov`, `.avi`, `.mkv`, `.mts`, `.m4v`.
+Put your raw video files in one folder. Subfolders are fine — EasyEdits searches recursively. Any format works: `.mp4`, `.mov`, `.avi`, `.mkv`, `.mts`, `.m4v`.
 
 No need to rename them — EasyEdits reads the recording timestamps embedded in the files and sorts them automatically.
 

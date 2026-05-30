@@ -75,6 +75,10 @@ Automates the first-pass edit of talking head / vlog video content:
 
 Both types appear in `preview_state.json → cuts[]` tagged with `"clip"` and `"type"`. The user can override them in plain English (e.g., "clip 3 isn't a duplicate, keep it") — remove the relevant cut from the cuts array and bump `last_modified`.
 
+## Recursive folder support
+
+`mode_scan` and `mode_transcribe` both search recursively using `rglob`. Clips can live in subfolders at any depth — they are still sorted by embedded creation timestamp (or file-mtime fallback) across the whole tree. The clip identifier passed via `--order` is always the bare filename (no subfolder prefix); a lookup dict maps it to the correct full path at transcription time.
+
 ## What this skill does NOT do
 
 - Beat-sync / music-driven cutting

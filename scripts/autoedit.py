@@ -488,10 +488,10 @@ def build_marked_transcript(
 # ── CLI modes ────────────────────────────────────────────────────────────────
 
 def mode_scan(folder: Path):
-    """Scan folder, detect clips and timestamps, print JSON."""
+    """Scan folder (recursively) for clips, detect timestamps, print JSON."""
     files = sorted([
-        f for f in folder.iterdir()
-        if f.suffix.lower() in VIDEO_EXTENSIONS
+        f for f in folder.rglob("*")
+        if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
     ])
 
     if not files:
@@ -531,9 +531,16 @@ def mode_transcribe(folder: Path, order: list[str], overrides: dict = None,
     total_original = 0
     total_cut = 0
 
+    # Build filename → full path lookup so clips in subfolders are found correctly
+    clip_lookup = {
+        f.name: f
+        for f in folder.rglob("*")
+        if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
+    }
+
     with tempfile.TemporaryDirectory() as tmpdir:
         for clip_name in order:
-            clip_path = folder / clip_name
+            clip_path = clip_lookup.get(clip_name, folder / clip_name)
             if not clip_path.exists():
                 results.append({"clip": clip_name, "error": "file not found"})
                 continue

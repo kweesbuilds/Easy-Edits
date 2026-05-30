@@ -52,13 +52,20 @@ def get_video_dimensions(video_path: Path) -> tuple[int, int, str]:
     return 1920, 1080, "30/1"
 
 
-def fps_to_timebase(fps_str: str) -> tuple[int, int]:
-    """Convert '30/1' or '60000/1001' to (numerator, denominator)."""
+def fps_to_timebase(fps_str: str) -> tuple[int, int, bool]:
+    """
+    Convert frame-rate string to (timebase, den, is_ntsc).
+    NTSC rates use a 1001 denominator (e.g. 60000/1001 = 59.94fps).
+    Timebase is always the nearest integer fps (e.g. 60 for 59.94).
+    """
     try:
         parts = fps_str.split("/")
-        return int(parts[0]), int(parts[1])
+        num, den = int(parts[0]), int(parts[1])
+        is_ntsc = (den == 1001)
+        timebase = int(round(num / den))
+        return timebase, den, is_ntsc
     except Exception:
-        return 30, 1
+        return 30, 1, False
 
 
 def sec_to_frames(seconds: float, fps_num: int, fps_den: int) -> int:
@@ -86,11 +93,25 @@ def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
     folder = Path(plan["folder"])
     clips  = plan["clips"]
 
+    def resolve_clip_path(clip_data: dict) -> Path:
+        """Return the actual path of a clip, using stored path or rglob fallback."""
+        stored = clip_data.get("path", "")
+        if stored and Path(stored).exists():
+            return Path(stored)
+        name = clip_data["clip"]
+        direct = folder / name
+        if direct.exists():
+            return direct
+        matches = list(folder.rglob(name))
+        return matches[0] if matches else direct
+
     # Use first clip to get project settings
-    first_clip_path = folder / plan["order"][0]
+    first_clip_data = next((c for c in clips if c["clip"] == plan["order"][0]), clips[0])
+    first_clip_path = resolve_clip_path(first_clip_data)
     width, height, fps_str = get_video_dimensions(first_clip_path)
-    fps_num, fps_den = fps_to_timebase(fps_str)
-    fps_float = fps_num / fps_den
+    fps_timebase, fps_den, is_ntsc = fps_to_timebase(fps_str)
+    fps_num = fps_timebase * fps_den  # reconstruct for sec_to_frames
+    fps_float = fps_timebase          # integer timebase for XML
 
     # Build keep-segments for every clip
     # Each keep_segment = {clip, in_sec, out_sec, timeline_in_sec, timeline_out_sec}
@@ -99,11 +120,11 @@ def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
 
     for clip_data in clips:
         clip_name   = clip_data["clip"]
-        clip_path   = folder / clip_name
+        clip_path   = resolve_clip_path(clip_data)
         duration    = clip_data["duration_sec"]
         cuts        = clip_data.get("cuts", [])
 
-        # Sort cuts by start time
+        # Sort cuts by start time; use max() so nested cuts don't reset prev_end
         cuts = sorted(cuts, key=lambda x: x["start"])
 
         # Build keep ranges (inverse of cuts)
@@ -115,7 +136,7 @@ def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
             cut_end   = cut["end"]
             if cut_start > prev_end + 0.01:
                 keep_ranges.append((prev_end, cut_start))
-            prev_end = cut_end
+            prev_end = max(prev_end, cut_end)
 
         if prev_end < duration - 0.01:
             keep_ranges.append((prev_end, duration))
@@ -125,9 +146,10 @@ def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
             if seg_duration < 0.05:
                 continue
             keep_segments.append({
-                "clip_name":       clip_name,
-                "clip_path":       str(clip_path),
-                "in_sec":          in_sec,
+                "clip_name":        clip_name,
+                "clip_path":        str(clip_path),
+                "clip_duration_sec": duration,
+                "in_sec":           in_sec,
                 "out_sec":         out_sec,
                 "duration_sec":    seg_duration,
                 "timeline_in_sec": timeline_cursor,
@@ -149,9 +171,11 @@ def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
     SubElement(sequence, "name").text = "EasyEdits_Timeline"
     SubElement(sequence, "duration").text = str(total_duration_frames)
 
+    ntsc_str = "TRUE" if is_ntsc else "FALSE"
+
     rate_el = SubElement(sequence, "rate")
-    SubElement(rate_el, "timebase").text = str(int(fps_float))
-    SubElement(rate_el, "ntsc").text     = "FALSE"
+    SubElement(rate_el, "timebase").text = str(fps_timebase)
+    SubElement(rate_el, "ntsc").text     = ntsc_str
 
     media = SubElement(sequence, "media")
 
@@ -169,51 +193,59 @@ def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
     audio_track_1 = SubElement(audio_el, "track")
 
     clip_id = 1
+    # Track which clips have had their <file> element fully defined already
+    defined_file_ids: dict[str, str] = {}  # clip_name -> file id
+
     for seg in keep_segments:
-        in_frames  = sec_to_frames(seg["in_sec"],          fps_num, fps_den)
-        out_frames = sec_to_frames(seg["out_sec"],          fps_num, fps_den)
-        tl_in      = sec_to_frames(seg["timeline_in_sec"], fps_num, fps_den)
-        tl_out     = sec_to_frames(seg["timeline_out_sec"],fps_num, fps_den)
-        dur_frames = out_frames - in_frames
+        in_frames      = sec_to_frames(seg["in_sec"],           fps_num, fps_den)
+        out_frames     = sec_to_frames(seg["out_sec"],           fps_num, fps_den)
+        tl_in          = sec_to_frames(seg["timeline_in_sec"],  fps_num, fps_den)
+        tl_out         = sec_to_frames(seg["timeline_out_sec"], fps_num, fps_den)
+        dur_frames     = out_frames - in_frames
+        clip_dur_frames = sec_to_frames(seg["clip_duration_sec"], fps_num, fps_den)
 
         # Video clipitem
         vi = SubElement(video_track, "clipitem", id=f"clipitem-{clip_id}")
         SubElement(vi, "name").text     = seg["clip_name"]
         SubElement(vi, "duration").text = str(dur_frames)
         vi_rate = SubElement(vi, "rate")
-        SubElement(vi_rate, "timebase").text = str(int(fps_float))
-        SubElement(vi_rate, "ntsc").text     = "FALSE"
-        SubElement(vi, "in").text   = str(in_frames)
-        SubElement(vi, "out").text  = str(out_frames)
+        SubElement(vi_rate, "timebase").text = str(fps_timebase)
+        SubElement(vi_rate, "ntsc").text     = ntsc_str
+        SubElement(vi, "in").text    = str(in_frames)
+        SubElement(vi, "out").text   = str(out_frames)
         SubElement(vi, "start").text = str(tl_in)
         SubElement(vi, "end").text   = str(tl_out)
 
-        file_el = SubElement(vi, "file", id=f"file-{clip_id}")
-        SubElement(file_el, "name").text    = seg["clip_name"]
-        SubElement(file_el, "pathurl").text = Path(seg["clip_path"]).as_uri()
-        f_rate = SubElement(file_el, "rate")
-        SubElement(f_rate, "timebase").text = str(int(fps_float))
-        SubElement(f_rate, "ntsc").text     = "FALSE"
-        SubElement(file_el, "duration").text = str(
-            sec_to_frames(seg["out_sec"], fps_num, fps_den)
-        )
-        media_f = SubElement(file_el, "media")
-        SubElement(SubElement(media_f, "video"), "duration").text = str(
-            sec_to_frames(seg["out_sec"], fps_num, fps_den)
-        )
+        clip_name = seg["clip_name"]
+        if clip_name in defined_file_ids:
+            # Already fully defined — reference by ID only
+            file_el = SubElement(vi, "file")
+            file_el.set("id", defined_file_ids[clip_name])
+        else:
+            file_id = f"file-{clip_id}"
+            defined_file_ids[clip_name] = file_id
+            file_el = SubElement(vi, "file", id=file_id)
+            SubElement(file_el, "name").text    = seg["clip_name"]
+            SubElement(file_el, "pathurl").text = Path(seg["clip_path"]).as_uri()
+            f_rate = SubElement(file_el, "rate")
+            SubElement(f_rate, "timebase").text = str(fps_timebase)
+            SubElement(f_rate, "ntsc").text     = ntsc_str
+            SubElement(file_el, "duration").text = str(clip_dur_frames)
+            media_f = SubElement(file_el, "media")
+            SubElement(SubElement(media_f, "video"), "duration").text = str(clip_dur_frames)
 
         # Audio clipitem (mirrors video)
         ai = SubElement(audio_track_1, "clipitem", id=f"clipitem-a{clip_id}")
         SubElement(ai, "name").text      = seg["clip_name"]
         SubElement(ai, "duration").text  = str(dur_frames)
         ai_rate = SubElement(ai, "rate")
-        SubElement(ai_rate, "timebase").text = str(int(fps_float))
-        SubElement(ai_rate, "ntsc").text     = "FALSE"
+        SubElement(ai_rate, "timebase").text = str(fps_timebase)
+        SubElement(ai_rate, "ntsc").text     = ntsc_str
         SubElement(ai, "in").text    = str(in_frames)
         SubElement(ai, "out").text   = str(out_frames)
         SubElement(ai, "start").text = str(tl_in)
         SubElement(ai, "end").text   = str(tl_out)
-        SubElement(ai, "file").set("id", f"file-{clip_id}")
+        SubElement(ai, "file").set("id", defined_file_ids[clip_name])
 
         clip_id += 1
 
@@ -231,8 +263,8 @@ def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
             SubElement(bv, "name").text     = br["filename"]
             SubElement(bv, "duration").text = str(br_dur_frames)
             bv_rate = SubElement(bv, "rate")
-            SubElement(bv_rate, "timebase").text = str(int(fps_float))
-            SubElement(bv_rate, "ntsc").text     = "FALSE"
+            SubElement(bv_rate, "timebase").text = str(fps_timebase)
+            SubElement(bv_rate, "ntsc").text     = ntsc_str
             SubElement(bv, "in").text    = str(br_in_frames)
             SubElement(bv, "out").text   = str(br_out_frames)
             SubElement(bv, "start").text = str(br_tl_in)

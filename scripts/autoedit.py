@@ -730,14 +730,22 @@ def mode_execute(folder: Path, order: list[str], cuts_file: str):
         for clip_result in cache.get("clips", []):
             words_by_clip[clip_result["clip"]] = clip_result.get("words", [])
 
-    # Enrich each clip entry with duration_sec and words so xml_builder has what it needs
+    # Build a filename→full-path lookup so xml_builder gets correct subfolder paths
+    path_lookup: dict[str, Path] = {}
+    for f in folder.rglob("*"):
+        if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS:
+            path_lookup[f.name] = f
+
+    # Enrich each clip entry with duration_sec, words, and resolved path
     for clip_entry in cuts_data:
+        clip_name = clip_entry["clip"]
+        clip_path = path_lookup.get(clip_name, folder / clip_name)
+        clip_entry["path"] = str(clip_path)
         if "duration_sec" not in clip_entry:
-            clip_path = folder / clip_entry["clip"]
             meta = get_video_metadata(clip_path)
             clip_entry["duration_sec"] = meta.get("duration_sec", 0)
         if "words" not in clip_entry:
-            clip_entry["words"] = words_by_clip.get(clip_entry["clip"], [])
+            clip_entry["words"] = words_by_clip.get(clip_name, [])
 
     # Write resolved cut plan for xml_builder
     plan_path = output_dir / "cut_plan.json"

@@ -345,22 +345,38 @@ def update_preview_captions(plan: dict, state_path: Path, words_per_line: int) -
     entries = []
     for clip_data in plan["clips"]:
         clip_name = clip_data["clip"]
-        words = clip_data.get("words", [])
-        cuts  = clip_data.get("cuts", [])
-        cut_ranges = [(c["start"], c["end"]) for c in cuts]
-        kept = [
-            w for w in words
-            if not any(cs <= w["start"] and w["end"] <= ce + 0.05 for cs, ce in cut_ranges)
-        ]
-        for i in range(0, len(kept), words_per_line):
-            chunk = kept[i:i + words_per_line]
-            if chunk:
-                entries.append({
-                    "clip":  clip_name,
-                    "start": chunk[0]["start"],
-                    "end":   chunk[-1]["end"],
-                    "text":  " ".join(w["word"] for w in chunk).strip()
-                })
+        words     = clip_data.get("words", [])
+        duration  = clip_data.get("duration_sec", 0)
+        cuts      = sorted(clip_data.get("cuts", []), key=lambda c: c["start"])
+
+        is_fully_cut = any(
+            c["type"] == "duplicate_take" and c["start"] <= 0.01 and c["end"] >= duration - 0.05
+            for c in cuts
+        )
+        if is_fully_cut:
+            continue
+
+        # Build keep segments; max() prevents nested cuts from creating false segments
+        keep_segs = []
+        prev_end  = 0.0
+        for c in cuts:
+            if c["start"] > prev_end + 0.01:
+                keep_segs.append((prev_end, c["start"]))
+            prev_end = max(prev_end, c["end"])
+        if prev_end < duration - 0.01:
+            keep_segs.append((prev_end, duration))
+
+        for (seg_start, seg_end) in keep_segs:
+            seg_words = [w for w in words if w["start"] >= seg_start and w["start"] < seg_end]
+            for i in range(0, len(seg_words), words_per_line):
+                chunk = seg_words[i:i + words_per_line]
+                if chunk:
+                    entries.append({
+                        "clip":  clip_name,
+                        "start": chunk[0]["start"],
+                        "end":   chunk[-1]["end"],
+                        "text":  " ".join(w["word"] for w in chunk).strip()
+                    })
 
     state["captions"]["words_per_line"] = words_per_line
     state["captions"]["entries"]        = entries

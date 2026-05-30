@@ -430,7 +430,7 @@ function buildVirtualTimeline(){
     const segs=[];let pos=0;
     for(const cut of cuts){
       if(cut.start>pos+0.01)segs.push({start:pos,end:cut.start});
-      pos=cut.end;
+      pos=Math.max(pos,cut.end);
     }
     if(pos<clip.duration_sec-0.01)segs.push({start:pos,end:clip.duration_sec});
     if(segs.length===0)segs.push({start:0,end:clip.duration_sec});
@@ -526,7 +526,7 @@ function onTimeUpdate(){
     if(t>=cut.start&&t<cut.end-0.02){
       // If this cut reaches the end of the clip, transition immediately
       if(cut.end>=clip.duration_sec-0.15){transitionToNext();}
-      else{mainVideo.currentTime=cut.end+0.05;}
+      else{mainVideo.currentTime=(cut.type==='bad_take')?cut.end:cut.end+0.05;}
       return;
     }
   }

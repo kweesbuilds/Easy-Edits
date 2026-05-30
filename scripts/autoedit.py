@@ -201,6 +201,32 @@ def detect_silences(wav_path: Path, duration_sec: float) -> list[dict]:
     return silences
 
 
+def snap_silence_to_word_boundaries(silences: list[dict], words: list[dict]) -> list[dict]:
+    """
+    Prevent silences from biting into adjacent words.
+    - If silence.start falls inside a word, push it to that word's end.
+    - If silence.end falls inside a word, pull it back to that word's start.
+    Silences that become shorter than SILENCE_MIN_DURATION after snapping are dropped.
+    """
+    snapped = []
+    for sil in silences:
+        start = sil["start"]
+        end   = sil["end"]
+        for w in words:
+            if w["start"] < start < w["end"]:
+                start = w["end"]
+                break
+        for w in words:
+            if w["start"] < end < w["end"]:
+                end = w["start"]
+                break
+        if end - start < SILENCE_MIN_DURATION:
+            continue
+        snapped.append({**sil, "start": round(start, 3), "end": round(end, 3),
+                        "duration": round(end - start, 2)})
+    return snapped
+
+
 def detect_false_starts(words: list[dict]) -> list[dict]:
     """
     Detect false starts — word sequences followed by em dash pause or
@@ -261,23 +287,38 @@ def detect_fillers(words: list[dict], filler_list: list[str]) -> list[dict]:
     return cuts
 
 
-def generate_caption_entries(words: list[dict], cuts: list[dict], words_per_line: int = 7, clip_name: str = "") -> list[dict]:
-    """Group kept words into caption entries of words_per_line each."""
-    cut_ranges = [(c["start"], c["end"]) for c in cuts]
-    kept = [
-        w for w in words
-        if not any(cs <= w["start"] and w["end"] <= ce + 0.05 for cs, ce in cut_ranges)
-    ]
+def generate_caption_entries(words: list[dict], cuts: list[dict], words_per_line: int = 3, clip_name: str = "") -> list[dict]:
+    """
+    Group kept words into caption entries, split at cut boundaries so no caption
+    spans a skipped region. Uses keep-segment approach with max() to handle
+    nested cuts (e.g. silences inside bad_takes) without false keep segments.
+    """
+    if not words:
+        return []
+    duration = words[-1]["end"] + 0.1
+    sorted_cuts = sorted(cuts, key=lambda c: c["start"])
+
+    keep_segs = []
+    prev_end = 0.0
+    for c in sorted_cuts:
+        if c["start"] > prev_end + 0.01:
+            keep_segs.append((prev_end, c["start"]))
+        prev_end = max(prev_end, c["end"])
+    if prev_end < duration - 0.01:
+        keep_segs.append((prev_end, duration))
+
     entries = []
-    for i in range(0, len(kept), words_per_line):
-        chunk = kept[i:i + words_per_line]
-        if chunk:
-            entries.append({
-                "clip": clip_name,
-                "start": chunk[0]["start"],
-                "end": chunk[-1]["end"],
-                "text": " ".join(w["word"] for w in chunk).strip()
-            })
+    for (seg_start, seg_end) in keep_segs:
+        seg_words = [w for w in words if w["start"] >= seg_start and w["start"] < seg_end]
+        for i in range(0, len(seg_words), words_per_line):
+            chunk = seg_words[i:i + words_per_line]
+            if chunk:
+                entries.append({
+                    "clip": clip_name,
+                    "start": chunk[0]["start"],
+                    "end": chunk[-1]["end"],
+                    "text": " ".join(w["word"] for w in chunk).strip()
+                })
     return entries
 
 
@@ -560,6 +601,7 @@ def mode_transcribe(folder: Path, order: list[str], overrides: dict = None,
 
             words        = transcribe_clip(wav_path)
             silences     = detect_silences(wav_path, meta.get("duration_sec", 0))
+            silences     = snap_silence_to_word_boundaries(silences, words)
             fillers      = detect_fillers(words, FILLER_WORDS)
             false_starts = detect_false_starts(words)
             bad_takes    = detect_repeated_phrases(words)

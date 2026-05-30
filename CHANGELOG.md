@@ -6,6 +6,17 @@ Format: [Semantic Versioning](https://semver.org) — `MAJOR.MINOR.PATCH`
 
 ---
 
+## [1.5.3] — 2026-05-30
+
+### Fixed
+- **Words cut off mid-syllable at silence boundaries** — `detect_silences` output is now passed through `snap_silence_to_word_boundaries()`: if a silence starts inside a word, its start is pushed to `word.end`; if it ends inside a word, its end is pulled back to `word.start`. Silences that become shorter than `SILENCE_MIN_DURATION` after snapping are dropped. Prevents FFmpeg silence detection from biting into the final syllable of words like "strategy.", "games.", "code.", etc.
+- **Caption segments spanning cut boundaries** — `generate_caption_entries` (autoedit.py) and `update_preview_captions` (xml_builder.py) now build keep segments using `max(prev_end, cut.end)` before grouping words into lines. Previously, nested cuts (silences inside bad_takes) reset `prev_end` to a smaller value, creating false keep segments mid-cut and putting wrong words into captions. Words in different keep segments are now always in separate caption entries.
+- **Preview: duplicate-take captions and wrong words** — same `max()` fix applied to `buildVirtualTimeline` in `preview.html`, preventing the timeline from showing kept segments inside bad_take cut regions.
+- **Preview: bad_take seek clips first word of retry** — `onTimeUpdate` now seeks to exactly `cut.end` (not `cut.end + 0.05`) for `bad_take` cuts, so the first word of the retry plays from its very start. The `+0.05` grace offset is still applied for silence cuts.
+- **Preview: stumble word plays before skip fires** — bad_take `cut.start` is now placed slightly before the stumble word (during the preceding pause), giving `onTimeUpdate` a window to seek before the stumble word begins playing, preventing the user from hearing the stumble followed immediately by its retry.
+
+---
+
 ## [1.5.2] — 2026-05-30
 
 ### Fixed

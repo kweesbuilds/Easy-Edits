@@ -6,6 +6,15 @@ Format: [Semantic Versioning](https://semver.org) — `MAJOR.MINOR.PATCH`
 
 ---
 
+## [1.5.2] — 2026-05-30
+
+### Fixed
+- **Video not playing in subfolder mode** — `preview_server.py` `/video/<filename>` route now falls back to `rglob` when the file isn't directly in `FOLDER`, so clips stored in scene subfolders are served correctly.
+- **Bad take false positives (32+ second cuts)** — `REPEAT_MAX_LOOKAHEAD` reduced from 100 → 40 words; new `REPEAT_MAX_DURATION_SEC = 15.0` constant rejects any candidate whose gap exceeds 15 seconds. Genuine stumble-restarts happen within seconds; the 32.5s false positive in long monologue clips is now prevented.
+- **Stray word at bad-take boundary** — `build_marked_transcript` in-cut check now uses `word.start < cut.end` (word-start-based) instead of `word.end <= cut.end + 0.05` (word-end-based). Words that begin inside a cut region but extend fractionally past the cut boundary are now correctly consumed rather than left as isolated keep-words in the transcript.
+
+---
+
 ## [1.5.1] — 2026-05-30
 
 ### Added

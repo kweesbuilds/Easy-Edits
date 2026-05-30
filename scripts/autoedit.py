@@ -51,9 +51,10 @@ WORD_NORMALIZATIONS = {
     "tryna": "trying", "hafta": "have", "oughta": "ought",
     "lemme": "let",   "gimme": "give", "dunno": "know",
 }
-REPEAT_CHECK_WINDOW  = 8    # words compared per phrase window
-REPEAT_SIMILARITY    = 0.72 # fraction of words that must match to flag a repeat
-REPEAT_MAX_LOOKAHEAD = 100  # max words ahead to search for a matching phrase
+REPEAT_CHECK_WINDOW    = 8    # words compared per phrase window
+REPEAT_SIMILARITY      = 0.72 # fraction of words that must match to flag a repeat
+REPEAT_MAX_LOOKAHEAD   = 40   # max words ahead to search for a matching phrase
+REPEAT_MAX_DURATION_SEC = 15.0 # reject bad takes longer than this (false positives)
 DUPE_CLIP_MIN_WORDS  = 20   # words from clip opening used for cross-clip comparison
 DUPE_CLIP_SIMILARITY = 0.72 # similarity threshold for duplicate-clip detection
 
@@ -320,12 +321,17 @@ def detect_repeated_phrases(words: list[dict]) -> list[dict]:
                 best_j, best_sim = j, sim
 
         if best_j is not None:
+            gap_sec = words[best_j]["start"] - words[i]["start"]
+            if gap_sec > REPEAT_MAX_DURATION_SEC:
+                # Too long to be a genuine stumble-restart — skip
+                i += 1
+                continue
             preview_words = min(8, REPEAT_CHECK_WINDOW)
             bad_takes.append({
                 "type": "bad_take",
                 "start": round(words[i]["start"], 3),
                 "end": round(words[best_j]["start"], 3),
-                "duration": round(words[best_j]["start"] - words[i]["start"], 2),
+                "duration": round(gap_sec, 2),
                 "text": " ".join(w["word"] for w in words[i:i + preview_words]),
                 "similarity": round(best_sim, 2),
             })
@@ -447,11 +453,12 @@ def build_marked_transcript(
         while cut_idx < len(filtered_cuts) and filtered_cuts[cut_idx]["end"] + 0.05 < word["start"]:
             cut_idx += 1
 
-        # Check if this word falls inside a cut
+        # Check if this word falls inside a cut (use word start, not end, to
+        # handle words that begin inside a cut but extend fractionally past it)
         in_cut = False
         if cut_idx < len(filtered_cuts):
             cut = filtered_cuts[cut_idx]
-            if word["start"] >= cut["start"] and word["end"] <= cut["end"] + 0.05:
+            if word["start"] >= cut["start"] and word["start"] < cut["end"]:
                 in_cut = True
                 if cut["type"] == "silence":
                     current_line.append(f"[... {cut['duration']}s silence ...]")
@@ -465,8 +472,8 @@ def build_marked_transcript(
                 elif cut["type"] == "duplicate_take":
                     current_line.append("[duplicate take — full clip cut]")
 
-                # Advance past this cut
-                while word_idx < len(words) and words[word_idx]["end"] <= cut["end"] + 0.05:
+                # Advance past all words whose start falls within this cut
+                while word_idx < len(words) and words[word_idx]["start"] < cut["end"]:
                     word_idx += 1
                 cut_idx += 1
                 continue
@@ -571,6 +578,7 @@ def mode_transcribe(folder: Path, order: list[str], overrides: dict = None,
 
             results.append({
                 "clip": clip_name,
+                "path": str(clip_path),
                 "duration_sec": meta.get("duration_sec", 0),
                 "duration_label": meta.get("duration_label", ""),
                 "created_label": meta.get("created_label", ""),
@@ -628,7 +636,7 @@ def mode_transcribe(folder: Path, order: list[str], overrides: dict = None,
         all_caption_entries.extend(clip_entries)
         state_clips.append({
             "filename": r["clip"],
-            "path": str(folder / r["clip"]),
+            "path": r.get("path", str(folder / r["clip"])),
             "duration_sec": r.get("duration_sec", 0),
             "words": words,
             "transcript_marked": r.get("transcript", "")

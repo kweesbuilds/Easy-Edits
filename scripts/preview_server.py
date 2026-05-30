@@ -62,7 +62,10 @@ def video(filename):
     filename = Path(filename).name   # block path traversal
     path = FOLDER / filename
     if not path.exists():
-        abort(404)
+        matches = list(FOLDER.rglob(filename))
+        if not matches:
+            abort(404)
+        path = matches[0]
     return send_file(str(path), conditional=True)
 
 

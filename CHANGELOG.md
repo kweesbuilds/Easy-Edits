@@ -6,11 +6,16 @@ Format: [Semantic Versioning](https://semver.org) — `MAJOR.MINOR.PATCH`
 
 ---
 
+## [1.5.5] — 2026-06-04
+
+### Fixed
+- **DaVinci Resolve: "timecode extents do not match any clip in media pool" (cameras with embedded timecode)** — Cameras such as DJI write time-of-day timecode (e.g. `12:28:19;10`) into their files. DaVinci Resolve matches XML clip references against the Media Pool using the source clip's timecode range. Our `<file>` elements had no `<timecode>` child, so DaVinci assumed each clip started at `00:00:00:00`; no imported DJI clip covers that range, so all 10 clips failed to link. `xml_builder.py` now calls `ffprobe` once per unique source clip to read the embedded timecode, converts it to an absolute frame number (with correct drop-frame arithmetic for 29.97/59.94fps), and writes a `<timecode>` element inside each `<file>` definition.
+
 ## [1.5.4] — 2026-06-04
 
 ### Fixed
 - **DaVinci Resolve: "clip not found" / relink dialog on import** — `pathurl` in the generated XML was using Python's `Path.as_uri()` which produces `file:///C:/path` and percent-encodes spaces as `%20`. DaVinci Resolve's FCP7 XML importer uses the URI as a raw file path without URL-decoding, so any spaces in folder or file names caused a lookup failure. `xml_builder.py` now uses `file://localhost/C:/path` (the FCP7 standard authority format, matching Premiere Pro and Final Cut Pro exports) with no percent-encoding.
-- **DaVinci Resolve: "timecode extents do not match any clip in media pool"** — For NTSC frame rates (e.g. 59.94fps = `60000/1001`), `fps_num` was incorrectly computed as `fps_timebase × fps_den` (`60 × 1001 = 60060`) instead of reading the raw numerator from ffprobe (`60000`). This made `sec_to_frames()` return counts one frame too high for clips whose duration was not a whole number of seconds, causing DaVinci to reject the clip link because the declared duration exceeded the actual media duration. `fps_num` is now parsed directly from the ffprobe `r_frame_rate` string.
+- **DaVinci Resolve: "timecode extents do not match any clip in media pool" (NTSC frame-count overshoot)** — For NTSC frame rates (e.g. 59.94fps = `60000/1001`), `fps_num` was incorrectly computed as `fps_timebase × fps_den` (`60 × 1001 = 60060`) instead of reading the raw numerator from ffprobe (`60000`). This made `sec_to_frames()` return counts one frame too high for clips whose duration was not a whole number of seconds, causing DaVinci to reject the clip link because the declared duration exceeded the actual media duration. `fps_num` is now parsed directly from the ffprobe `r_frame_rate` string.
 
 ---
 

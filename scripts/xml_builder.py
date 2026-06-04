@@ -62,6 +62,46 @@ def get_video_dimensions(video_path: Path) -> tuple[int, int, str]:
     return 1920, 1080, "30/1"
 
 
+def get_clip_timecode(video_path: Path) -> str | None:
+    """Return embedded timecode string (e.g. '12:28:19;10') or None if absent."""
+    cmd = [
+        "ffprobe", "-v", "quiet",
+        "-print_format", "json",
+        "-show_format", "-show_streams",
+        str(video_path)
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        data = json.loads(result.stdout)
+        tc = data.get("format", {}).get("tags", {}).get("timecode")
+        if tc:
+            return tc
+        for stream in data.get("streams", []):
+            tc = stream.get("tags", {}).get("timecode")
+            if tc:
+                return tc
+    except Exception:
+        pass
+    return None
+
+
+def timecode_to_frames(tc_str: str, timebase: int) -> int:
+    """Convert timecode string to absolute frame number.
+
+    Handles drop-frame (HH:MM:SS;FF) and non-drop-frame (HH:MM:SS:FF).
+    At 29.97fps (timebase=30) DF drops 2 frames/min; at 59.94fps (timebase=60) drops 4.
+    """
+    is_df = ";" in tc_str
+    parts = tc_str.replace(";", ":").split(":")
+    h, m, s, f = int(parts[0]), int(parts[1]), int(parts[2]), int(parts[3])
+    total_frames = timebase * (3600 * h + 60 * m + s) + f
+    if is_df:
+        total_min    = 60 * h + m
+        drop_per_min = 2 if timebase <= 30 else 4
+        total_frames -= drop_per_min * (total_min - total_min // 10)
+    return total_frames
+
+
 def fps_to_timebase(fps_str: str) -> tuple[int, int, bool]:
     """
     Convert frame-rate string to (timebase, den, is_ntsc).
@@ -126,6 +166,9 @@ def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
         fps_num = fps_timebase * fps_den
     fps_float = fps_timebase          # integer timebase for XML
 
+    # Pre-fetch embedded timecode for each unique clip (one ffprobe call per clip)
+    clip_timecodes: dict[str, str | None] = {}
+
     # Build keep-segments for every clip
     # Each keep_segment = {clip, in_sec, out_sec, timeline_in_sec, timeline_out_sec}
     keep_segments = []
@@ -134,6 +177,8 @@ def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
     for clip_data in clips:
         clip_name   = clip_data["clip"]
         clip_path   = resolve_clip_path(clip_data)
+        if clip_name not in clip_timecodes:
+            clip_timecodes[clip_name] = get_clip_timecode(clip_path)
         duration    = clip_data["duration_sec"]
         cuts        = clip_data.get("cuts", [])
 
@@ -244,6 +289,16 @@ def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
             SubElement(f_rate, "timebase").text = str(fps_timebase)
             SubElement(f_rate, "ntsc").text     = ntsc_str
             SubElement(file_el, "duration").text = str(clip_dur_frames)
+            tc_str = clip_timecodes.get(clip_name)
+            if tc_str:
+                tc_el = SubElement(file_el, "timecode")
+                tc_rate = SubElement(tc_el, "rate")
+                SubElement(tc_rate, "timebase").text = str(fps_timebase)
+                SubElement(tc_rate, "ntsc").text     = ntsc_str
+                SubElement(tc_el, "string").text     = tc_str
+                SubElement(tc_el, "frame").text      = str(timecode_to_frames(tc_str, fps_timebase))
+                SubElement(tc_el, "source").text     = "source"
+                SubElement(tc_el, "displayformat").text = "DF" if ";" in tc_str else "NDF"
             media_f = SubElement(file_el, "media")
             SubElement(SubElement(media_f, "video"), "duration").text = str(clip_dur_frames)
 

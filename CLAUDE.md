@@ -216,9 +216,12 @@ basically, literally, right, okay so, so yeah, i mean, honestly, actually, obvio
 
 ## Changelog
 
+### v1.5.5 — 2026-06-04
+- **Fixed: DaVinci "timecode extents do not match" (cameras with embedded TC)** — Cameras like DJI write time-of-day timecode into their files. DaVinci matches XML clips by timecode range; without a `<timecode>` element in `<file>`, DaVinci assumed every clip started at 00:00:00:00 and found nothing in the pool. `xml_builder.py` now reads embedded timecode via ffprobe and writes `<timecode><string>`, `<frame>`, and `<displayformat>` for every `<file>` definition.
+
 ### v1.5.4 — 2026-06-04
 - **Fixed: DaVinci "clip not found" / relink dialog** — `pathurl` now uses `file://localhost/C:/path` (FCP7 standard) instead of `file:///C:/path`. Python's `Path.as_uri()` percent-encoded spaces as `%20` which DaVinci treated as a literal path; also `file:///` authority form was not handled by DaVinci's importer.
-- **Fixed: DaVinci "timecode extents do not match"** — For NTSC rates, `fps_num` is now read directly from the ffprobe `r_frame_rate` numerator (e.g. `60000`) instead of being recomputed as `fps_timebase × fps_den` (`60 × 1001 = 60060`), which overstated frame counts and caused DaVinci to reject the clip link.
+- **Fixed: DaVinci "timecode extents do not match" (NTSC frame-count overshoot)** — For NTSC rates, `fps_num` is now read directly from the ffprobe `r_frame_rate` numerator (e.g. `60000`) instead of being recomputed as `fps_timebase × fps_den` (`60 × 1001 = 60060`), which overstated frame counts and caused DaVinci to reject the clip link.
 
 ### v1.4.1 — 2026-05-25
 - **Fixed: duplicate captions / silences not cut** — `--cuts` file must be clip-centric (see "Critical: --cuts file format" above); flat cut lists caused one uncut copy per cut

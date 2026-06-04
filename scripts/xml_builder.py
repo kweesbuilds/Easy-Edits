@@ -22,6 +22,16 @@ from xml.dom import minidom
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+def path_to_uri(path: Path) -> str:
+    """Convert a path to a file URI in FCP7 format for DaVinci Resolve.
+    Uses file://localhost/ authority (FCP7 standard) without percent-encoding.
+    DaVinci Resolve expects this exact format; file:/// causes clip-not-found."""
+    path_str = str(path).replace("\\", "/")
+    if not path_str.startswith("/"):
+        path_str = "/" + path_str  # Windows: C:/... → /C:/...
+    return "file://localhost" + path_str
+
+
 def sec_to_srt_time(seconds: float) -> str:
     """Convert seconds to SRT timestamp format HH:MM:SS,mmm"""
     ms  = int((seconds % 1) * 1000)
@@ -110,7 +120,10 @@ def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
     first_clip_path = resolve_clip_path(first_clip_data)
     width, height, fps_str = get_video_dimensions(first_clip_path)
     fps_timebase, fps_den, is_ntsc = fps_to_timebase(fps_str)
-    fps_num = fps_timebase * fps_den  # reconstruct for sec_to_frames
+    try:
+        fps_num = int(fps_str.split("/")[0])  # e.g. 60000 for 59.94fps, not 60*1001=60060
+    except Exception:
+        fps_num = fps_timebase * fps_den
     fps_float = fps_timebase          # integer timebase for XML
 
     # Build keep-segments for every clip
@@ -226,7 +239,7 @@ def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
             defined_file_ids[clip_name] = file_id
             file_el = SubElement(vi, "file", id=file_id)
             SubElement(file_el, "name").text    = seg["clip_name"]
-            SubElement(file_el, "pathurl").text = Path(seg["clip_path"]).as_uri()
+            SubElement(file_el, "pathurl").text = path_to_uri(Path(seg["clip_path"]))
             f_rate = SubElement(file_el, "rate")
             SubElement(f_rate, "timebase").text = str(fps_timebase)
             SubElement(f_rate, "ntsc").text     = ntsc_str
@@ -272,7 +285,7 @@ def build_fcpxml(plan: dict, output_dir: Path, broll: list = None) -> Path:
 
             br_file = SubElement(bv, "file", id=f"broll-file-{br_idx}")
             SubElement(br_file, "name").text    = br["filename"]
-            SubElement(br_file, "pathurl").text = br_path.as_uri()
+            SubElement(br_file, "pathurl").text = path_to_uri(br_path)
             brf_rate = SubElement(br_file, "rate")
             SubElement(brf_rate, "timebase").text = str(int(fps_float))
             SubElement(brf_rate, "ntsc").text     = "FALSE"

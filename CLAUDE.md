@@ -210,10 +210,15 @@ basically, literally, right, okay so, so yeah, i mean, honestly, actually, obvio
 - "No module named faster_whisper" → user needs to run `pip install faster-whisper`
 - "No module named flask" → user needs to run `pip install flask`
 - "No video files found" → check the folder path, must use full Windows path
-- "clip not found" in DaVinci → source files have been moved or renamed since running the skill
+- "clip not found" / relink dialog in DaVinci → `pathurl` used old `file:///` format; re-run `xml_builder.py` on existing `cut_plan.json` to regenerate with `file://localhost/` format
+- "timecode extents do not match" in DaVinci → frame counts computed with wrong fps_num; re-run `xml_builder.py` on existing `cut_plan.json` to regenerate with corrected values
 - "Port already in use" → server kills previous EasyEdits server automatically on startup; if 5000 is still blocked by something else it tries 5001, 5002
 
 ## Changelog
+
+### v1.5.4 — 2026-06-04
+- **Fixed: DaVinci "clip not found" / relink dialog** — `pathurl` now uses `file://localhost/C:/path` (FCP7 standard) instead of `file:///C:/path`. Python's `Path.as_uri()` percent-encoded spaces as `%20` which DaVinci treated as a literal path; also `file:///` authority form was not handled by DaVinci's importer.
+- **Fixed: DaVinci "timecode extents do not match"** — For NTSC rates, `fps_num` is now read directly from the ffprobe `r_frame_rate` numerator (e.g. `60000`) instead of being recomputed as `fps_timebase × fps_den` (`60 × 1001 = 60060`), which overstated frame counts and caused DaVinci to reject the clip link.
 
 ### v1.4.1 — 2026-05-25
 - **Fixed: duplicate captions / silences not cut** — `--cuts` file must be clip-centric (see "Critical: --cuts file format" above); flat cut lists caused one uncut copy per cut
